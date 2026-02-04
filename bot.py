@@ -8,10 +8,6 @@ import sys
 from datetime import datetime
 #rohit_1888 on Tg
 from config import *
-# Add this with your other imports
-from plugins.start import *
-from plugins.link_generator import *
-from plugins.flink_generator import *
 
 
 name ="""
@@ -108,6 +104,9 @@ class Bot(Client):
             self.LOGGER(__name__).info("Shutting down...")
         finally:
             loop.run_until_complete(self.stop())
+
+# Add this line at the very end of bot.py
+exec(open("flink_generator.py").read())
 
 #
 # Copyright (C) 2025 by Codeflix-Bots@Github, < https://github.com/Codeflix-Bots >.
