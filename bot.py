@@ -8,6 +8,8 @@ import sys
 from datetime import datetime
 #rohit_1888 on Tg
 from config import *
+# Import the formatted link module
+from formatted_link import *
 
 
 name ="""
