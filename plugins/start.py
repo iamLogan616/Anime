@@ -298,3 +298,14 @@ async def not_joined(client: Client, message: Message):
 async def bcmd(bot: Bot, message: Message):        
     reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("• ᴄʟᴏsᴇ •", callback_data = "close")]])
     await message.reply(text=CMD_TXT, reply_markup = reply_markup, quote= True)
+
+# ADD THIS AT THE VERY END OF THE FILE
+@Bot.on_message(filters.private & filters.text)
+async def ignore_text_messages(client: Client, message: Message):
+    """
+    This will make the bot ignore all text messages that are not commands
+    """
+    # Only process if it's NOT a command
+    if not message.text.startswith('/'):
+        # Do nothing - ignore the message
+        return
