@@ -319,8 +319,3 @@ async def custom_batch(client: Client, message: Message):
         f"<code>{link}</code>",
         reply_markup=reply_markup
     )
-
-# ===== ADD TEST COMMAND TO VERIFY FILE IS WORKING =====
-@Bot.on_message(filters.command('linktest') & filters.private)
-async def link_test_command(client: Client, message: Message):
-    await message.reply("✅ link_generator.py is loaded and working!")
