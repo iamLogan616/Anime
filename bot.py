@@ -9,7 +9,9 @@ from datetime import datetime
 #rohit_1888 on Tg
 from config import *
 # Add this with your other imports
-from .flink_generator import *
+from plugins.start import *
+from plugins.link_generator import *
+from plugins.flink_generator import *
 
 
 name ="""
