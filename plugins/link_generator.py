@@ -320,7 +320,7 @@ async def custom_batch(client: Client, message: Message):
         reply_markup=reply_markup
     )
 
-# ===== ADD TEST COMMAND HERE =====
-@Bot.on_message(filters.command('testcommand'))
-async def test_command(client: Client, message: Message):
-    await message.reply_text("✅ Test command is working! Now try /flink")
+# ===== ADD TEST COMMAND TO VERIFY FILE IS WORKING =====
+@Bot.on_message(filters.command('linktest') & filters.private)
+async def link_test_command(client: Client, message: Message):
+    await message.reply("✅ link_generator.py is loaded and working!")
