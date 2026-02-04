@@ -250,3 +250,50 @@ subscribed = filters.create(is_subscribed)
 admin = filters.create(check_admin)
 
 #rohit_1888 on Tg :
+
+# Add this function at the end of helper_func.py
+
+async def create_formatted_links(client, message_ids, quality_counts, channel_type="primary"):
+    """
+    Create formatted links for multiple qualities
+    Returns: dict with {quality: link}
+    """
+    if channel_type == "secondary" and client.secondary_channel:
+        target_channel = client.secondary_channel
+        prefix = "sec-"
+    else:
+        target_channel = client.db_channel
+        prefix = ""
+    
+    channel_multiplier = abs(target_channel.id)
+    results = {}
+    current_index = 0
+    
+    for quality, count in quality_counts.items():
+        if current_index + count > len(message_ids):
+            break
+            
+        start_id = message_ids[current_index] * channel_multiplier
+        end_id = message_ids[current_index + count - 1] * channel_multiplier
+        
+        if count == 1:
+            string = f"get-{start_id}"
+        else:
+            string = f"get-{start_id}-{end_id}"
+        
+        if prefix:
+            string = f"{prefix}{string}"
+        
+        base64_string = await encode(string)
+        
+        # Generate link
+        from config import PERMANENT_LINKS, BLOGSPOT_URL, BLOGSPOT_PARAM
+        if PERMANENT_LINKS and BLOGSPOT_URL:
+            link = f"{BLOGSPOT_URL}?{BLOGSPOT_PARAM}={base64_string}"
+        else:
+            link = f"https://t.me/{client.username}?start={base64_string}"
+        
+        results[quality] = link
+        current_index += count
+    
+    return results
