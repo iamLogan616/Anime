@@ -57,12 +57,9 @@ async def start_command(client: Client, message: Message):
         except:
             pass
 
-    # Handle normal message flow - ONLY if the message has parameters after /start
+    # Handle normal message flow
     text = message.text
-    if len(text) > 7:  # /start + space + at least 1 character
-        if not text.startswith('/start '):  # Make sure it's actually a /start command with parameter
-            return  # Don't process if it's not a proper /start command
-            
+    if len(text) > 7:
         try:
             base64_string = text.split(" ", 1)[1]
         except IndexError:
@@ -173,7 +170,6 @@ async def start_command(client: Client, message: Message):
             except Exception as e:
                 print(f"Error updating notification with 'Get File Again' button: {e}")
     else:
-        # This is for /start command without any parameters
         reply_markup = InlineKeyboardMarkup(
             [
                 [InlineKeyboardButton("• ᴍᴏʀᴇ ᴄʜᴀɴɴᴇʟs •", url="https://t.me/xeonflix")],
@@ -298,14 +294,3 @@ async def not_joined(client: Client, message: Message):
 async def bcmd(bot: Bot, message: Message):        
     reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("• ᴄʟᴏsᴇ •", callback_data = "close")]])
     await message.reply(text=CMD_TXT, reply_markup = reply_markup, quote= True)
-
-# ADD THIS AT THE VERY END OF THE FILE
-@Bot.on_message(filters.private & filters.text)
-async def ignore_text_messages(client: Client, message: Message):
-    """
-    This will make the bot ignore all text messages that are not commands
-    """
-    # Only process if it's NOT a command
-    if not message.text.startswith('/'):
-        # Do nothing - ignore the message
-        return
