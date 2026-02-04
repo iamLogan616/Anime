@@ -319,3 +319,36 @@ async def custom_batch(client: Client, message: Message):
         f"<code>{link}</code>",
         reply_markup=reply_markup
     )
+
+# ============== ADD /flink COMMAND HERE ==============
+
+# Store format settings per user
+user_formats = {}
+
+def generate_link(base64_string, client):
+    """Generate link based on configuration"""
+    if PERMANENT_LINKS and BLOGSPOT_URL:
+        return f"{BLOGSPOT_URL}?{BLOGSPOT_PARAM}={base64_string}"
+    else:
+        return f"https://t.me/{client.username}?start={base64_string}"
+
+@Bot.on_message(filters.private & admin & filters.command('flink'))
+async def flink_command(client: Client, message: Message):
+    """Formatted link generation command"""
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("• sᴇᴛ ғᴏʀᴍᴀᴛ •", callback_data="set_format")],
+        [InlineKeyboardButton("• sᴛᴀʀᴛ •", callback_data="start_format_link")],
+        [InlineKeyboardButton("• ᴄᴀɴᴄᴇʟ •", callback_data="cancel_format")]
+    ])
+    
+    await message.reply_text(
+        "**📁 Formatted Link Generator**\n\n"
+        "1. **Set Format** - Configure quality settings\n"
+        "2. **Start** - Begin link generation process\n"
+        "3. **Cancel** - Cancel current operation\n\n"
+        "**Note:** Files must be in sequence without deletions between them.",
+        reply_markup=keyboard
+    )
+
+# ... [ADD ALL THE REST OF THE /flink CODE FROM MY PREVIOUS MESSAGE HERE]
+# Copy the entire code block I provided earlier and paste it here
