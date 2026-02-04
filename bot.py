@@ -105,10 +105,7 @@ class Bot(Client):
         finally:
             loop.run_until_complete(self.stop())
 
-# Add this line at the very end of bot.py
-exec(open("flink_generator.py").read())
 
-#
 # Copyright (C) 2025 by Codeflix-Bots@Github, < https://github.com/Codeflix-Bots >.
 #
 # This file is part of < https://github.com/Codeflix-Bots/FileStore > project,
