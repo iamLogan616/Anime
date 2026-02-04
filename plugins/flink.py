@@ -13,8 +13,8 @@ from database.database import db
 # Store format settings per user
 user_formats = {}
 
-def generate_link(base64_string, client):
-    """Generate link based on configuration"""
+def generate_link_flink(base64_string, client):
+    """Generate link based on configuration - renamed to avoid conflict"""
     if PERMANENT_LINKS and BLOGSPOT_URL:
         return f"{BLOGSPOT_URL}?{BLOGSPOT_PARAM}={base64_string}"
     else:
@@ -23,6 +23,8 @@ def generate_link(base64_string, client):
 @Bot.on_message(filters.private & admin & filters.command('flink'))
 async def flink_command(client: Client, message: Message):
     """Formatted link generation command"""
+    print(f"DEBUG: /flink command received from {message.from_user.id}")
+    
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("• sᴇᴛ ғᴏʀᴍᴀᴛ •", callback_data="set_format")],
         [InlineKeyboardButton("• sᴛᴀʀᴛ •", callback_data="start_format_link")],
@@ -170,8 +172,23 @@ async def start_format_link(client: Client, callback_query: CallbackQuery):
     """Start formatted link generation process"""
     user_id = callback_query.from_user.id
     
-    if user_id not in user_formats or sum(user_formats[user_id].values()) == 0:
+    # Check if format is set
+    if user_id not in user_formats:
         await callback_query.answer("❌ Please set format first!", show_alert=True)
+        return
+    
+    # Calculate total files
+    total_files = sum([
+        user_formats[user_id]['360P'],
+        user_formats[user_id]['480P'],
+        user_formats[user_id]['720P'],
+        user_formats[user_id]['1080P'],
+        user_formats[user_id]['HDRIP'],
+        user_formats[user_id]['4K']
+    ])
+    
+    if total_files == 0:
+        await callback_query.answer("❌ Please set format with at least one quality!", show_alert=True)
         return
     
     await callback_query.message.edit_text(
@@ -183,7 +200,7 @@ async def start_format_link(client: Client, callback_query: CallbackQuery):
         f"1080P = {user_formats[user_id]['1080P']}\n"
         f"HDRIP = {user_formats[user_id]['HDRIP']}\n"
         f"4K = {user_formats[user_id]['4K']}\n\n"
-        f"**Total Files:** {sum(user_formats[user_id].values())}\n"
+        f"**Total Files:** {total_files}\n"
         f"**Channel:** {user_formats[user_id]['channel_type'].upper()}\n\n"
         "**Please send the first post link or forward the first message from the database channel.**\n"
         "Type **CANCEL** to abort.",
@@ -225,16 +242,6 @@ async def start_format_link(client: Client, callback_query: CallbackQuery):
         
         await first_msg.reply("✅ First message received. Generating links...")
         
-        # Calculate total files needed
-        total_files = sum([
-            user_formats[user_id]['360P'],
-            user_formats[user_id]['480P'],
-            user_formats[user_id]['720P'],
-            user_formats[user_id]['1080P'],
-            user_formats[user_id]['HDRIP'],
-            user_formats[user_id]['4K']
-        ])
-        
         # Generate message IDs
         channel_multiplier = abs(target_channel.id)
         start_id = msg_id
@@ -270,7 +277,7 @@ async def start_format_link(client: Client, callback_query: CallbackQuery):
                     string = f"sec-{string}"
                 
                 base64_string = await encode(string)
-                link = generate_link(base64_string, client)
+                link = generate_link_flink(base64_string, client)  # Use renamed function
                 quality_links[quality] = link
                 
                 current_index += count
@@ -287,7 +294,7 @@ async def start_format_link(client: Client, callback_query: CallbackQuery):
             if channel_type == "secondary":
                 master_string = f"sec-{master_string}"
             master_base64 = await encode(master_string)
-            master_link = generate_link(master_base64, client)
+            master_link = generate_link_flink(master_base64, client)  # Use renamed function
             buttons.append([InlineKeyboardButton("📦 ALL FILES", url=master_link)])
         
         reply_markup = InlineKeyboardMarkup(buttons)
@@ -334,3 +341,8 @@ async def cancel_format_callback(client: Client, callback_query: CallbackQuery):
     
     await callback_query.message.edit_text("❌ Formatted link generation cancelled.")
     await callback_query.answer()
+
+# ===== DEBUG COMMAND =====
+@Bot.on_message(filters.command('debugflink'))
+async def debug_flink(client: Client, message: Message):
+    await message.reply_text("✅ flink.py is loaded and working!")
