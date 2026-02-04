@@ -25,9 +25,9 @@ API_HASH = os.environ.get("API_HASH", "92bcb6aa798a6f1feadbc917fccb54d3") #Your 
 
 # Permanent Link System (VJ Style)
 PERMANENT_LINKS = os.environ.get("PERMANENT_LINKS", "True") == "True"
-BLOGSPOT_URL = os.environ.get("BLOGSPOT_URL", "https://xeonflix.blogspot.com/2026/01/redirect-link.html")
-BLOGSPOT_PARAM = os.environ.get("BLOGSPOT_PARAM", "Xeonstart")
-CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "-1002205750726"))
+BLOGSPOT_URL = os.environ.get("BLOGSPOT_URL", "https://xeonflix.blogspot.com/2026/02/redirect-link.html")
+BLOGSPOT_PARAM = os.environ.get("BLOGSPOT_PARAM", "Xeonflix")
+CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "-1002218993972"))
 SECONDARY_CHANNEL_ID = int(os.environ.get("SECONDARY_CHANNEL_ID", "-1003120008287"))  # Secondary channel
 OWNER = os.environ.get("OWNER", "MrXeon") # Owner username without @
 OWNER_ID = int(os.environ.get("OWNER_ID", "821215952")) # Owner id
@@ -35,7 +35,7 @@ OWNER_ID = int(os.environ.get("OWNER_ID", "821215952")) # Owner id
 PORT = os.environ.get("PORT", "8000")
 #--------------------------------------------
 DB_URI = os.environ.get("DATABASE_URL", "")
-DB_NAME = os.environ.get("DATABASE_NAME", "MovieSeries")
+DB_NAME = os.environ.get("DATABASE_NAME", "ANCN")
 #--------------------------------------------
 FSUB_LINK_EXPIRY = int(os.getenv("FSUB_LINK_EXPIRY", "0"))  # 0 means no expiry
 BAN_SUPPORT = os.environ.get("BAN_SUPPORT", "https://t.me/CodeflixSupport")
