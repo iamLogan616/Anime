@@ -189,7 +189,7 @@ async def create_formatted_link(client: Client, file_ids: Dict[str, List[int]], 
     
     return formatted_text, buttons
 
-@Bot.on_message(filters.private & admin & filters.command('flink'))
+@Bot.on_message(filters.private & admin & filters.command('formatlink'))
 async def flink_command(client: Client, message: Message):
     """Handle /flink command for formatted link creation"""
     user_id = message.from_user.id
