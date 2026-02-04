@@ -57,12 +57,14 @@ async def start_command(client: Client, message: Message):
         except:
             pass
 
-    # Handle normal message flow
+    # Handle normal message flow - ONLY process if text has parameters after /start
     text = message.text
-    if len(text) > 7:
+    if len(text.split()) > 1:  # Check if there's something after /start
         try:
             base64_string = text.split(" ", 1)[1]
         except IndexError:
+            # If no parameter after /start, show start menu
+            await show_start_menu(client, message)
             return
 
         string = await decode(base64_string)
@@ -170,36 +172,35 @@ async def start_command(client: Client, message: Message):
             except Exception as e:
                 print(f"Error updating notification with 'Get File Again' button: {e}")
     else:
-        reply_markup = InlineKeyboardMarkup(
+        # Show start menu when no parameters
+        await show_start_menu(client, message)
+
+async def show_start_menu(client: Client, message: Message):
+    """Show the start menu"""
+    reply_markup = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("• ᴍᴏʀᴇ ᴄʜᴀɴɴᴇʟs •", url="https://t.me/xeonflix")],
             [
-                [InlineKeyboardButton("• ᴍᴏʀᴇ ᴄʜᴀɴɴᴇʟs •", url="https://t.me/xeonflix")],
-                [
-                    InlineKeyboardButton("• ᴀʙᴏᴜᴛ", callback_data="about"),
-                    InlineKeyboardButton('ʜᴇʟᴘ •', callback_data="help")
-                ]
+                InlineKeyboardButton("• ᴀʙᴏᴜᴛ", callback_data="about"),
+                InlineKeyboardButton('ʜᴇʟᴘ •', callback_data="help")
             ]
-        )
-        await message.reply_photo(
-            photo=START_PIC,
-            caption=START_MSG.format(
-                first=message.from_user.first_name,
-                last=message.from_user.last_name,
-                username=None if not message.from_user.username else '@' + message.from_user.username,
-                mention=message.from_user.mention,
-                id=message.from_user.id
-            ),
-            reply_markup=reply_markup,
-            message_effect_id=5104841245755180586)  # 🔥
-        
-        return
-
-
+        ]
+    )
+    await message.reply_photo(
+        photo=START_PIC,
+        caption=START_MSG.format(
+            first=message.from_user.first_name,
+            last=message.from_user.last_name,
+            username=None if not message.from_user.username else '@' + message.from_user.username,
+            mention=message.from_user.mention,
+            id=message.from_user.id
+        ),
+        reply_markup=reply_markup,
+        message_effect_id=5104841245755180586)  # 🔥
 
 #=====================================================================================##
 # Don't Remove Credit @CodeFlix_Bots, @rohit_1888
 # Ask Doubt on telegram @CodeflixSupport
-
-
 
 # Create a global dictionary to store chat data
 chat_data_cache = {}
@@ -294,3 +295,8 @@ async def not_joined(client: Client, message: Message):
 async def bcmd(bot: Bot, message: Message):        
     reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("• ᴄʟᴏsᴇ •", callback_data = "close")]])
     await message.reply(text=CMD_TXT, reply_markup = reply_markup, quote= True)
+
+# ===== DEBUG COMMAND - ADD THIS =====
+@Bot.on_message(filters.command('test') & filters.private)
+async def test_cmd(client: Client, message: Message):
+    await message.reply("✅ Test command works!")
