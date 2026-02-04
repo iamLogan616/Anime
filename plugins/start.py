@@ -57,9 +57,12 @@ async def start_command(client: Client, message: Message):
         except:
             pass
 
-    # Handle normal message flow
+    # Handle normal message flow - ONLY if the message has parameters after /start
     text = message.text
-    if len(text) > 7:
+    if len(text) > 7:  # /start + space + at least 1 character
+        if not text.startswith('/start '):  # Make sure it's actually a /start command with parameter
+            return  # Don't process if it's not a proper /start command
+            
         try:
             base64_string = text.split(" ", 1)[1]
         except IndexError:
@@ -170,6 +173,7 @@ async def start_command(client: Client, message: Message):
             except Exception as e:
                 print(f"Error updating notification with 'Get File Again' button: {e}")
     else:
+        # This is for /start command without any parameters
         reply_markup = InlineKeyboardMarkup(
             [
                 [InlineKeyboardButton("• ᴍᴏʀᴇ ᴄʜᴀɴɴᴇʟs •", url="https://t.me/xeonflix")],
