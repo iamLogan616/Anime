@@ -25,7 +25,7 @@ API_HASH = os.environ.get("API_HASH", "92bcb6aa798a6f1feadbc917fccb54d3") #Your 
 
 # Permanent Link System (VJ Style)
 PERMANENT_LINKS = os.environ.get("PERMANENT_LINKS", "True") == "True"
-BLOGSPOT_URL = os.environ.get("BLOGSPOT_URL", "https://xeonflix.blogspot.com/2026/02/redirect-link.html")
+BLOGSPOT_URL = os.environ.get("BLOGSPOT_URL", "https://animexeon.blogspot.com/2026/02/animeredirect.html")
 BLOGSPOT_PARAM = os.environ.get("BLOGSPOT_PARAM", "Xeonflix")
 CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "-1002218993972"))
 SECONDARY_CHANNEL_ID = int(os.environ.get("SECONDARY_CHANNEL_ID", "-1003120008287"))  # Secondary channel
