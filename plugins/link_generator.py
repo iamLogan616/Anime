@@ -1,8 +1,9 @@
 #(©)Codexbotz
 
-from pyrofork import Client, filters
-from pyrofork.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from pyrofork.types import ReplyKeyboardMarkup, ReplyKeyboardRemove
+from pyrogram import Client, filters
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from bot import Bot
+from pyrogram.types import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from asyncio import TimeoutError
 from helper_func import encode, get_message_id, admin
 from config import PERMANENT_LINKS, BLOGSPOT_URL, BLOGSPOT_PARAM
