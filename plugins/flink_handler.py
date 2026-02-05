@@ -20,7 +20,7 @@ from database.database import db  # Make sure this import works
 import re
 import logging
 
-print("✅ flink_handler.py is loading...")
+print("✅ flink.py is loading...")
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -37,15 +37,8 @@ async def flink_db_post_filter(_, __, message: Message):
     state = flink_user_data[user_id].get('awaiting_db_post')
     return state and (message.forward_from_chat or (message.text and message.text.startswith('https://t.me/')))
 
-@Bot.on_message(filters.private & filters.command('flink'))
-async def flink_command(client: Client, message: Message):
-    """Handle /flink command for formatted link generation."""
-    try:
-        # Check if user is admin (using your admin check from helper_func)
-        from helper_func import check_admin
-        if not await check_admin(None, client, message):
-            await message.reply_text("❌ You are not authorized to use this command!")
-            return
+@Bot.on_message(filters.private & admin & filters.command('flink'))
+async def flink(client: Client, message: Message):
 
         flink_user_data[message.from_user.id] = {
             'format': None,
