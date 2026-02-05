@@ -395,23 +395,17 @@ async def flink_generate_final_output(client: Client, message: Message):
             await message.reply_text("<b>━━━━━━━━━━━━━━━━━━</b>\n<b>❌ No links generated. Please check the input and try again.</b>\n<b>━━━━━━━━━━━━━━━━━━</b>", parse_mode=ParseMode.HTML)
             return
         
-        # Debug: Show what links we have
-        logger.info(f"Generated links: {links}")
-        logger.info(f"Channel type: {channel_type}")
-        logger.info(f"Target channel ID: {target_channel.id}")
+        # Create test button to verify link format
+        test_quality = list(links.keys())[0]
+        test_link = await create_link(client, links[test_quality], channel_type, target_channel)
+        
+        # Parse the link to see what we're generating
+        logger.info(f"Test link for {test_quality}: {test_link}")
         
         buttons = []
         quality_list = list(links.keys())
         num_qualities = len(quality_list)
         
-        # Test each link before creating buttons
-        test_links = []
-        for quality in quality_list:
-            link_url = await create_link(client, links[quality], channel_type, target_channel)
-            test_links.append((quality, link_url))
-            logger.info(f"Generated link for {quality}: {link_url}")
-        
-        # Create buttons based on number of qualities
         if num_qualities == 2:
             buttons.append([
                 InlineKeyboardButton(f"🦋 {quality_list[0]} 🦋", url=await create_link(client, links[quality_list[0]], channel_type, target_channel)),
@@ -452,6 +446,11 @@ async def flink_generate_final_output(client: Client, message: Message):
                     InlineKeyboardButton(f"🦋 {quality} 🦋", url=await create_link(client, links[quality], channel_type, target_channel))
                 ])
         
+        # Add a test button to check link manually
+        buttons.append([
+            InlineKeyboardButton("🔗 Test Link Format", callback_data="flink_test_link")
+        ])
+        
         buttons.append([
             InlineKeyboardButton("◈ Edit ◈", callback_data="flink_edit_output"),
             InlineKeyboardButton("✅ Done", callback_data="flink_done_output")
@@ -460,10 +459,24 @@ async def flink_generate_final_output(client: Client, message: Message):
         edit_data = flink_user_data[user_id].get('edit_data', {})
         caption = edit_data.get('caption', '')
         
-        # Add debug info to caption
-        debug_info = f"\n\n<b>Debug Info:</b>\nChannel: {channel_type.capitalize()}\n"
+        # Add detailed debug info
+        debug_info = f"\n\n<b>Debug Info:</b>\n"
+        debug_info += f"<b>Channel:</b> {channel_type.capitalize()} ({target_channel.title})\n"
+        debug_info += f"<b>Channel ID:</b> {target_channel.id}\n"
+        debug_info += f"<b>Channel Multiplier:</b> {abs(target_channel.id)}\n"
+        
         for quality, data in links.items():
-            debug_info += f"{quality}: IDs {data['start']}-{data['end']} ({data['count']} files)\n"
+            converted_start = data['start'] * abs(target_channel.id)
+            converted_end = data['end'] * abs(target_channel.id)
+            debug_info += f"\n<b>{quality}:</b>\n"
+            debug_info += f"  Message IDs: {data['start']} to {data['end']}\n"
+            debug_info += f"  Converted: {converted_start} to {converted_end}\n"
+            debug_info += f"  Files: {data['count']}\n"
+            # Show the actual string that will be encoded
+            if channel_type == "secondary":
+                debug_info += f"  String: <code>sec-get-{converted_start}-{converted_end}</code>\n"
+            else:
+                debug_info += f"  String: <code>get-{converted_start}-{converted_end}</code>\n"
         
         final_caption = caption + debug_info if caption else f"<b>━━━━━━━━━━━━━━━━━━</b>\n<blockquote><b>Here are your download buttons from {channel_type.capitalize()} Channel:</b></blockquote>\n{debug_info}\n<b>━━━━━━━━━━━━━━━━━━</b>"
         
@@ -482,6 +495,7 @@ async def flink_generate_final_output(client: Client, message: Message):
             )
         
         flink_user_data[user_id]['output_message'] = output_msg
+        flink_user_data[user_id]['test_link'] = test_link
     except Exception as e:
         logger.error(f"error in flink_generate_final_output: {e}")
         await message.reply_text(f"<b>━━━━━━━━━━━━━━━━━━</b>\n<b>❌ An error occurred while generating output: {str(e)}</b>\n<b>━━━━━━━━━━━━━━━━━━</b>", parse_mode=ParseMode.HTML)
@@ -489,38 +503,57 @@ async def flink_generate_final_output(client: Client, message: Message):
 async def create_link(client: Client, link_data: Dict, channel_type: str, target_channel) -> str:
     """Create a Telegram link for a range of message IDs."""
     try:
-        # Get the channel multiplier
+        # Get the channel multiplier (absolute value)
         channel_multiplier = abs(target_channel.id)
         
         # Calculate converted IDs (multiply by channel ID)
+        # This matches what your channel_post.py does: converted_id = post_message.id * abs(client.db_channel.id)
         start_converted = link_data['start'] * channel_multiplier
         end_converted = link_data['end'] * channel_multiplier
         
-        logger.info(f"Creating link for: start_id={link_data['start']}, end_id={link_data['end']}")
-        logger.info(f"Channel multiplier: {channel_multiplier}")
-        logger.info(f"Converted: start={start_converted}, end={end_converted}")
+        logger.info(f"Creating link:")
+        logger.info(f"  Raw IDs: start={link_data['start']}, end={link_data['end']}")
+        logger.info(f"  Channel multiplier: {channel_multiplier}")
+        logger.info(f"  Converted IDs: start={start_converted}, end={end_converted}")
         
         # Create the string based on channel type
+        # Format matches your link_generator.py: f"get-{f_msg_id * channel_multiplier}-{s_msg_id * channel_multiplier}"
         if channel_type == "secondary":
+            # For secondary: "sec-get-{converted_start}-{converted_end}"
             string = f"sec-get-{start_converted}-{end_converted}"
         else:
+            # For primary: "get-{converted_start}-{converted_end}"
             string = f"get-{start_converted}-{end_converted}"
         
-        logger.info(f"String to encode: {string}")
+        logger.info(f"  String to encode: {string}")
         
         # Encode to base64
         base64_string = await encode(string)
-        logger.info(f"Base64 string: {base64_string}")
+        logger.info(f"  Base64 string: {base64_string}")
         
         # Create the final bot link
         link = f"https://t.me/{client.username}?start={base64_string}"
-        logger.info(f"Final link: {link}")
+        logger.info(f"  Final link: {link}")
         
         return link
         
     except Exception as e:
         logger.error(f"Error in create_link: {e}")
         raise
+
+@Bot.on_callback_query(filters.regex(r"^flink_test_link$"))
+async def flink_test_link_callback(client: Client, query: CallbackQuery):
+    """Handle callback to test link format."""
+    try:
+        user_id = query.from_user.id
+        if user_id in flink_user_data and 'test_link' in flink_user_data[user_id]:
+            test_link = flink_user_data[user_id]['test_link']
+            await query.answer(f"Test link: {test_link}", show_alert=True)
+        else:
+            await query.answer("No test link available", show_alert=True)
+    except Exception as e:
+        logger.error(f"error in flink_test_link_callback: {e}")
+        await query.answer("Error getting test link", show_alert=True)
 
 @Bot.on_callback_query(filters.regex(r"^flink_edit_output$"))
 async def flink_edit_output_callback(client: Client, query: CallbackQuery):
