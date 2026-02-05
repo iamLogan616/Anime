@@ -1,14 +1,12 @@
-# plugins/flink_command.py
 #(©)CodeFlix_Bots
 #rohit_1888 on Tg
 
 import asyncio
-from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, CallbackQuery
-from pyrogram.errors import FloodWait
+from pyrofork import Client, filters
+from pyrofork.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, CallbackQuery
+from pyrofork.errors import FloodWait
 from asyncio import TimeoutError
 
-from bot import Bot
 from config import *
 from helper_func import encode, get_message_id, admin, decode
 
@@ -397,9 +395,6 @@ async def share_formatted_callback(client: Client, callback_query: CallbackQuery
         share_text += f"{link}\n\n"
     
     share_text += f"🤖 **Bot:** @{client.username}"
-    
-    # Create share URL (URL encoded)
-    share_url = f"https://t.me/share/url?url={share_text}"
     
     await callback_query.answer()
     await callback_query.message.reply_text(
