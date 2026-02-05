@@ -14,6 +14,6 @@ python-dotenv
 # --- For-Web-Response ------- #
 pytz
 requests
-beautifulsoup4
+bs4
 aiofiles
 asyncio
