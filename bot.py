@@ -1,17 +1,13 @@
 from aiohttp import web
-from plugins import web_server
 import asyncio
 import pyromod.listen
-from pyrogram import Client
-from pyrogram.enums import ParseMode
+from pyrofork import Client
+from pyrofork.enums import ParseMode
 import sys
 from datetime import datetime
-#rohit_1888 on Tg
 from config import *
-# Import the formatted link module
 
-
-name ="""
+name = """
  BY CODEFLIX BOTS
 """
 
@@ -41,7 +37,7 @@ class Bot(Client):
         try:
             db_channel = await self.get_chat(CHANNEL_ID)
             self.db_channel = db_channel
-            test = await self.send_message(chat_id = db_channel.id, text = "Test Message - Primary Channel")
+            test = await self.send_message(chat_id=db_channel.id, text="Test Message - Primary Channel")
             await test.delete()
             self.LOGGER(__name__).info(f"Primary DB Channel Loaded: {db_channel.title}")
         except Exception as e:
@@ -77,6 +73,9 @@ class Bot(Client):
         else:
             self.LOGGER(__name__).info(f"Bot Running with 1 DB Channel!")
 
+        # Import web_server here to avoid circular import
+        from plugins import web_server
+        
         # Start Web Server
         app = web.AppRunner(await web_server())
         await app.setup()
@@ -84,9 +83,9 @@ class Bot(Client):
 
         try: 
             if self.secondary_channel:
-                await self.send_message(OWNER_ID, text = f"<b><blockquote>✅ Bᴏᴛ Rᴇsᴛᴀʀᴛᴇᴅ with 2 DB Channels by @Codeflix_Bots\n\nPrimary: {self.db_channel.title}\nSecondary: {self.secondary_channel.title}</blockquote></b>")
+                await self.send_message(OWNER_ID, text=f"<b><blockquote>✅ Bᴏᴛ Rᴇsᴛᴀʀᴛᴇᴅ with 2 DB Channels by @Codeflix_Bots\n\nPrimary: {self.db_channel.title}\nSecondary: {self.secondary_channel.title}</blockquote></b>")
             else:
-                await self.send_message(OWNER_ID, text = f"<b><blockquote>✅ Bᴏᴛ Rᴇsᴛᴀʀᴛᴇᴅ with 1 DB Channel by @Codeflix_Bots\n\nPrimary: {self.db_channel.title}</blockquote></b>")
+                await self.send_message(OWNER_ID, text=f"<b><blockquote>✅ Bᴏᴛ Rᴇsᴛᴀʀᴛᴇᴅ with 1 DB Channel by @Codeflix_Bots\n\nPrimary: {self.db_channel.title}</blockquote></b>")
         except: 
             pass
 
