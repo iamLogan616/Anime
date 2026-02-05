@@ -5,11 +5,11 @@ import base64
 import re
 import asyncio
 import time
-from pyrofork import filters
-from pyrofork.enums import ChatMemberStatus
+from pyrogram import filters
+from pyrogram.enums import ChatMemberStatus
 from config import *
-from pyrofork.errors.exceptions.bad_request_400 import UserNotParticipant
-from pyrofork.errors import FloodWait
+from pyrogram.errors.exceptions.bad_request_400 import UserNotParticipant
+from pyrogram.errors import FloodWait
 from database.database import *
 
 
