@@ -1,7 +1,7 @@
 from bot import Bot
-import pyrofork.utils
+import pyrogram.utils
 
-pyrofork.utils.MIN_CHANNEL_ID = -1009147483647
+pyrogram.utils.MIN_CHANNEL_ID = -1009147483647
 
 if __name__ == "__main__":
     Bot().run()
