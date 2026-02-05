@@ -16,12 +16,11 @@ import random
 import sys
 import time
 from datetime import datetime, timedelta
-from pyrogram import Client, filters, __version__
-from pyrogram.enums import ParseMode, ChatAction
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, ReplyKeyboardMarkup, ChatInviteLink, ChatPrivileges
-from pyrogram.errors.exceptions.bad_request_400 import UserNotParticipant
-from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated, UserNotParticipant
-from bot import Bot
+from pyrofork import Client, filters, __version__
+from pyrofork.enums import ParseMode, ChatAction
+from pyrofork.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, ReplyKeyboardMarkup, ChatInviteLink, ChatPrivileges
+from pyrofork.errors.exceptions.bad_request_400 import UserNotParticipant
+from pyrofork.errors import FloodWait, UserIsBlocked, InputUserDeactivated, UserNotParticipant
 from config import *
 from helper_func import *
 from database.database import *
