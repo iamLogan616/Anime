@@ -188,4 +188,29 @@ def get_exp_time(seconds):
 subscribed = filters.create(is_subscribed)
 admin = filters.create(check_admin)
 
-#rohit_1888 on Tg :
+# Add this function to helper_func.py at the end, before the last line
+
+async def decode_sequence_batch(string: str):
+    """Decode sequence batch string with titles"""
+    import base64
+    import ast
+    
+    # Format: seq-start-end-titles_b64
+    if not string.startswith("seq-"):
+        return None, None, None
+    
+    parts = string.split("-", 3)
+    if len(parts) != 4:
+        return None, None, None
+    
+    _, start_str, end_str, titles_b64 = parts
+    
+    try:
+        start = int(start_str)
+        end = int(end_str)
+        titles_json = base64.b64decode(titles_b64).decode()
+        titles = ast.literal_eval(titles_json)
+        return start, end, titles
+    except Exception as e:
+        print(f"Error decoding sequence batch: {e}")
+        return None, None, None
