@@ -23,7 +23,8 @@ from bot import Bot
 from config import *
 from helper_func import *
 from database.database import *
-from plugins.link_generator import generate_link  # added for flink links
+from plugins.link_generator import generate_link  # for flink links
+from plugins.flink import flink_sessions       # session guard for flink
 
 BAN_SUPPORT = f"{BAN_SUPPORT}"
 
@@ -44,6 +45,11 @@ def decode_format(encoded):
 @Bot.on_message(filters.command('start') & filters.private)
 async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
+
+    # --- Flink session guard: prevent /start from interrupting active flink process ---
+    if user_id in flink_sessions and flink_sessions[user_id].get("in_progress"):
+        await message.reply("⏳ Please complete the current flink process first (type CANCEL if needed).")
+        return
 
     # Check if user is banned
     banned_users = await db.get_ban_users()
