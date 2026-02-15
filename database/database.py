@@ -1,5 +1,11 @@
-#Codeflix_Botz
-#rohit_1888 on Tg
+# Don't Remove Credit @Yeon_Bots
+# Ask Doubt on telegram @MrXeonTg
+# Copyright (C) 2026 by Yeon-Bots
+# ===============================[ ᴍᴀᴅᴇ ᴡɪᴛʜ 🤍 ʙʏ @YEON_bots × Copyright (C) 2026 by Yeon-Bots@Github, < https://github.com/MrYKTG>. Copyright (C) 2026 by Yeon-Bots@Telegram, < https://t.me/Yeon_Bots >.  ]==============================
+# ᴅᴏɴ'ᴛ sᴇʟʟ • ᴅᴏɴ'ᴛ ᴄʟᴀɪᴍ ᴀs ʏᴏᴜʀs • sᴜᴘᴘᴏʀᴛ: t.me/Yeon_bots • ʀᴇᴘᴏʀᴛ ʙᴜɢs: @MrXeontg
+# ==================================================================================================
+# All rights reserved.
+#
 
 import motor, asyncio
 import motor.motor_asyncio
@@ -9,7 +15,6 @@ from config import DB_URI, DB_NAME
 from bot import Bot
 import logging
 from datetime import datetime, timedelta
-import base64
 
 dbclient = pymongo.MongoClient(DB_URI)
 database = dbclient[DB_NAME]
@@ -32,7 +37,7 @@ class Rohit:
         self.fsub_data = self.database['fsub']   
         self.rqst_fsub_data = self.database['request_forcesub']
         self.rqst_fsub_Channel_data = self.database['request_forcesub_channel']
-        self.seq_batches = self.database['seq_batches']   # new collection
+        
 
 
     # USER DATA
@@ -194,30 +199,6 @@ class Rohit:
         else:
             #print(f"Channel {channel_id} NOT found in the database.")
             return False
-
-
-    # ---------- NEW: SEQUENCE BATCH METHODS ----------
-    async def create_seq_batch(self, channel_type, message_ids, titles, batch_name=None):
-        """Create a new sequence batch and return its unique ID."""
-        batch_id = base64.urlsafe_b64encode(os.urandom(6)).decode().rstrip('=')
-        data = {
-            '_id': batch_id,
-            'channel_type': channel_type,          # "primary" or "secondary"
-            'message_ids': message_ids,
-            'titles': titles,
-            'batch_name': batch_name,
-            'created_at': datetime.utcnow()
-        }
-        await self.seq_batches.insert_one(data)
-        return batch_id
-
-    async def get_seq_batch(self, batch_id):
-        """Retrieve a sequence batch by its ID."""
-        return await self.seq_batches.find_one({'_id': batch_id})
-
-    async def delete_seq_batch(self, batch_id):
-        """Delete a sequence batch."""
-        await self.seq_batches.delete_one({'_id': batch_id})
 
 
 db = Rohit(DB_URI, DB_NAME)
