@@ -5,22 +5,9 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from bot import Bot
 from pyrogram.types import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from asyncio import TimeoutError
-from helper_func import encode, get_message_id, admin
+from helper_func import encode, get_message_id, admin, generate_link, get_link_type
 from config import PERMANENT_LINKS, BLOGSPOT_URL, BLOGSPOT_PARAM
 
-def generate_link(base64_string, client):
-    """Generate link - permanent for batch/genlink, direct for channel_post"""
-    if PERMANENT_LINKS and BLOGSPOT_URL:
-        return f"{BLOGSPOT_URL}?{BLOGSPOT_PARAM}={base64_string}"
-    else:
-        return f"https://t.me/{client.username}?start={base64_string}"
-
-def get_link_type():
-    """Get link type description"""
-    if PERMANENT_LINKS and BLOGSPOT_URL:
-        return "Permanent"
-    else:
-        return "Direct"
 
 async def choose_channel(client: Client, message: Message, text: str):
     """Let admin choose which channel to use"""
