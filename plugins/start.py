@@ -1,12 +1,9 @@
-# Don't Remove Credit @CodeFlix_Bots, @rohit_1888
-# Ask Doubt on telegram @CodeflixSupport
-#
-# Copyright (C) 2025 by Codeflix-Bots@Github, < https://github.com/Codeflix-Bots >.
-#
-# This file is part of < https://github.com/Codeflix-Bots/FileStore > project,
-# and is released under the MIT License.
-# Please see < https://github.com/Codeflix-Bots/FileStore/blob/master/LICENSE >
-#
+# Don't Remove Credit @Yeon_Bots
+# Ask Doubt on telegram @MrXeonTg
+# Copyright (C) 2026 by Yeon-Bots
+# ===============================[ ᴍᴀᴅᴇ ᴡɪᴛʜ 🤍 ʙʏ @YEON_bots × Copyright (C) 2026 by Yeon-Bots@Github, < https://github.com/MrYKTG>. Copyright (C) 2026 by Yeon-Bots@Telegram, < https://t.me/Yeon_Bots >.  ]==============================
+# ᴅᴏɴ'ᴛ sᴇʟʟ • ᴅᴏɴ'ᴛ ᴄʟᴀɪᴍ ᴀs ʏᴏᴜʀs • sᴜᴘᴘᴏʀᴛ: t.me/Yeon_bots • ʀᴇᴘᴏʀᴛ ʙᴜɢs: @MrXeontg
+# ==================================================================================================
 # All rights reserved.
 #
 
@@ -154,25 +151,16 @@ async def start_command(client: Client, message: Message):
                         print(f"Error deleting message {snt_msg.id}: {e}")
 
             try:
-                reload_url = (
-                    f"https://t.me/{client.username}?start={message.command[1]}"
-                    if message.command and len(message.command) > 1
-                    else None
-                )
-                keyboard = InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("🔄 Get file again!", url=reload_url)]]
-                ) if reload_url else None
-
+                # Removed "Get file again" button and replaced with text message
                 await notification_msg.edit(
-                    "<b>✅ Your video/file is successfully deleted!\n\nClick below button to get your deleted video/file 👇</b>",
-                    reply_markup=keyboard
+                    "<b><i>⏰ Time is over\nYour files has been deleted ✅</i></b>"
                 )
             except Exception as e:
-                print(f"Error updating notification with 'Get File Again' button: {e}")
+                print(f"Error updating notification message: {e}")
     else:
+        # Modified reply markup without "More Channels" button
         reply_markup = InlineKeyboardMarkup(
             [
-                [InlineKeyboardButton("• ᴍᴏʀᴇ ᴄʜᴀɴɴᴇʟs •", url="https://t.me/xeonflix")],
                 [
                     InlineKeyboardButton("• ᴀʙᴏᴜᴛ", callback_data="about"),
                     InlineKeyboardButton('ʜᴇʟᴘ •', callback_data="help")
@@ -196,8 +184,8 @@ async def start_command(client: Client, message: Message):
 
 
 #=====================================================================================##
-# Don't Remove Credit @CodeFlix_Bots, @rohit_1888
-# Ask Doubt on telegram @CodeflixSupport
+# Don't Remove Credit @Yeon_Bots, @mrxeontg
+# Ask Doubt on telegram @yeon_bots
 
 
 
