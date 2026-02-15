@@ -13,7 +13,7 @@ import random
 import sys
 import time
 import re
-import logging  # added for logging
+import logging
 from datetime import datetime, timedelta
 from pyrogram import Client, filters, __version__
 from pyrogram.enums import ParseMode, ChatAction
@@ -24,10 +24,9 @@ from bot import Bot
 from config import *
 from helper_func import *
 from database.database import *
-from plugins.link_generator import generate_link  # for flink links
-from plugins.flink import flink_sessions       # session guard for flink
+from plugins.link_generator import generate_link
+from plugins.flink import flink_sessions
 
-# Set up logger
 LOGGER = logging.getLogger(__name__)
 
 BAN_SUPPORT = f"{BAN_SUPPORT}"
@@ -69,17 +68,14 @@ async def start_command(client: Client, message: Message):
     if not await is_subscribed(client, user_id):
         return await not_joined(client, message)
 
-    # File auto-delete time in seconds
     FILE_AUTO_DELETE = await db.get_del_timer()
 
-    # Add user if not already present
     if not await db.present_user(user_id):
         try:
             await db.add_user(user_id)
         except:
             pass
 
-    # Handle deep-linked messages
     text = message.text
     if len(text) > 7:
         try:
@@ -88,9 +84,15 @@ async def start_command(client: Client, message: Message):
             return
 
         string = await decode(base64_string)
-
-        # ========== DEBUG LOG: see what string we got ==========
         LOGGER.info(f"🔍 Decoded start string for user {user_id}: {string}")
+
+        # ========== CORRUPTED LINK DETECTION ==========
+        if not (string.startswith("flink-") or string.startswith("sec-") or string.startswith("get-")):
+            LOGGER.error(f"Corrupted link for user {user_id}: {string}")
+            return await message.reply(
+                "❌ The link you used appears to be corrupted. This usually happens when using a permanent redirect link for flink features.\n\n"
+                "Please ask the admin to share the **direct bot link** (starting with `https://t.me/`) instead of a BlogSpot link."
+            )
 
         # ========== FLINK (Formatted Link) Handler ==========
         if string.startswith("flink-"):
@@ -114,11 +116,9 @@ async def start_command(client: Client, message: Message):
             if not format_list:
                 return await message.reply("❌ Invalid format in link.")
 
-            # Calculate total messages needed
             total_needed = sum(count for _, count in format_list)
             end_id = start_id + total_needed - 1
 
-            # Fetch messages
             try:
                 messages = await get_messages(client, list(range(start_id, end_id + 1)), channel=channel_type)
             except Exception as e:
@@ -127,7 +127,6 @@ async def start_command(client: Client, message: Message):
             if len(messages) < total_needed:
                 return await message.reply("❌ Not enough messages available. The link may be expired.")
 
-            # Build quality buttons
             multiplier = abs(target_channel.id)
             current_index = 0
             quality_buttons = []
@@ -138,7 +137,6 @@ async def start_command(client: Client, message: Message):
                 msg_ids = [msg.id for msg in messages[current_index:current_index + count]]
                 if not msg_ids:
                     continue
-                # Create batch link for this quality
                 start_id_mult = msg_ids[0] * multiplier
                 end_id_mult = msg_ids[-1] * multiplier
                 string_batch = f"get-{start_id_mult}-{end_id_mult}"
@@ -193,6 +191,8 @@ async def start_command(client: Client, message: Message):
             except Exception as e:
                 print(f"Error decoding single ID: {e}")
                 return await message.reply("❌ Invalid link format.")
+        else:
+            return await message.reply("❌ Invalid link format.")
 
         temp_msg = await message.reply(f"<b>📥 Fetching from {channel_type} channel...</b>")
 
