@@ -13,6 +13,7 @@ import random
 import sys
 import time
 import re
+import logging  # added for logging
 from datetime import datetime, timedelta
 from pyrogram import Client, filters, __version__
 from pyrogram.enums import ParseMode, ChatAction
@@ -25,6 +26,9 @@ from helper_func import *
 from database.database import *
 from plugins.link_generator import generate_link  # for flink links
 from plugins.flink import flink_sessions       # session guard for flink
+
+# Set up logger
+LOGGER = logging.getLogger(__name__)
 
 BAN_SUPPORT = f"{BAN_SUPPORT}"
 
@@ -84,6 +88,9 @@ async def start_command(client: Client, message: Message):
             return
 
         string = await decode(base64_string)
+
+        # ========== DEBUG LOG: see what string we got ==========
+        LOGGER.info(f"🔍 Decoded start string for user {user_id}: {string}")
 
         # ========== FLINK (Formatted Link) Handler ==========
         if string.startswith("flink-"):
