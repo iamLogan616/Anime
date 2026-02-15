@@ -185,6 +185,23 @@ def get_exp_time(seconds):
             result += f'{int(period_value)} {period_name}'
     return result
 
+
+# ---------- NEW: LINK GENERATION HELPERS (from config) ----------
+def generate_link(base64_string, client):
+    """Generate a permanent or direct link based on config."""
+    if PERMANENT_LINKS and BLOGSPOT_URL:
+        return f"{BLOGSPOT_URL}?{BLOGSPOT_PARAM}={base64_string}"
+    else:
+        return f"https://t.me/{client.username}?start={base64_string}"
+
+def get_link_type():
+    """Return link type description."""
+    if PERMANENT_LINKS and BLOGSPOT_URL:
+        return "Permanent"
+    else:
+        return "Direct"
+
+
 subscribed = filters.create(is_subscribed)
 admin = filters.create(check_admin)
 
