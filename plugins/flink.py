@@ -1,5 +1,5 @@
 # plugins/flink.py
-# Formatted Link Generator – with robust callback handling
+# Formatted Link Generator – with detailed logging
 
 import re
 import logging
@@ -65,9 +65,8 @@ async def flink_command(client: Bot, message: Message):
     LOGGER.info(f"User {user_id} issued /flink command")
 
     if user_id not in flink_sessions:
-        flink_sessions[user_id] = {"format": None, "channel_type": None, "start_msg_id": None}
+        flink_sessions[user_id] = {"format": None, "channel_type": None, "start_msg_id": None, "in_progress": False}
 
-    # Use both colon and underscore to be safe
     buttons = [
         [InlineKeyboardButton("• sᴇᴛ ғᴏʀᴍᴀᴛ •", callback_data="flink:set")],
         [InlineKeyboardButton("• sᴛᴀʀᴛ ᴘʀᴏᴄᴇss •", callback_data="flink:start")],
@@ -81,53 +80,43 @@ async def flink_command(client: Bot, message: Message):
     )
     await message.reply(text, reply_markup=InlineKeyboardMarkup(buttons))
 
-# ====================== ROBUST CALLBACK HANDLER ======================
-@Bot.on_callback_query()
-async def flink_catch_all(client: Bot, callback: CallbackQuery):
-    """Catches any callback and routes flink-related ones."""
-    data = callback.data
+# ====================== DEDICATED CALLBACK HANDLER ======================
+@Bot.on_callback_query(filters.regex(r"^flink:"))
+async def flink_callback(client: Bot, callback: CallbackQuery):
     user_id = callback.from_user.id
-
-    # If it's not a flink callback, ignore (let other handlers process it)
-    if not data.startswith("flink"):
-        # Allow other plugins to handle it
-        callback.continue_propagation()
-        return
-
-    LOGGER.info(f"Flink callback received: {data} from user {user_id}")
+    LOGGER.info(f"Dedicated handler: callback {callback.data} from user {user_id}")
 
     try:
-        # Immediately answer to stop loading animation
+        # Always answer immediately to stop loading animation
         await callback.answer()
+        LOGGER.info("Callback answered")
 
-        # Extract action: supports both "flink:set" and "flink_set"
-        if ":" in data:
-            action = data.split(":", 1)[1]
-        elif "_" in data:
-            action = data.split("_", 1)[1]
-        else:
-            action = data[5:]  # remove "flink" prefix
+        # Parse action
+        action = callback.data.split(":", 1)[1]
+        LOGGER.info(f"Action: {action}")
 
         if action == "set":
+            LOGGER.info("Deleting message and calling set_format")
             await callback.message.delete()
             await set_format(client, callback.message, user_id)
 
         elif action == "start":
+            LOGGER.info("Deleting message and calling start_process")
             await callback.message.delete()
             await start_process(client, callback.message, user_id)
 
         elif action == "refresh":
+            LOGGER.info("Refresh action")
             if user_id not in flink_sessions:
-                flink_sessions[user_id] = {"format": None, "channel_type": None, "start_msg_id": None}
+                flink_sessions[user_id] = {"format": None, "channel_type": None, "start_msg_id": None, "in_progress": False}
             current = format_summary(flink_sessions[user_id].get("format"))
             await callback.answer(f"Current format: {current}", show_alert=True)
 
         else:
-            LOGGER.warning(f"Unknown flink action '{action}'")
-            await callback.answer("Unknown action", show_alert=True)
+            LOGGER.warning(f"Unknown action: {action}")
 
     except Exception as e:
-        LOGGER.error(f"Error in flink callback: {e}", exc_info=True)
+        LOGGER.error(f"Error in flink_callback: {e}", exc_info=True)
         try:
             await callback.answer("An error occurred. Check logs.", show_alert=True)
         except:
@@ -135,6 +124,8 @@ async def flink_catch_all(client: Bot, callback: CallbackQuery):
 
 # ====================== SET FORMAT ======================
 async def set_format(client: Bot, msg: Message, user_id: int):
+    LOGGER.info(f"Entering set_format for user {user_id}")
+    flink_sessions[user_id]["in_progress"] = True
     try:
         answer = await client.ask(
             chat_id=user_id,
@@ -147,9 +138,13 @@ async def set_format(client: Bot, msg: Message, user_id: int):
             ),
             timeout=120
         )
+        LOGGER.info(f"Received answer: {answer.text if answer.text else 'no text'}")
     except TimeoutError:
+        LOGGER.info("Timeout in set_format")
         await client.send_message(user_id, "⏰ Timeout. Operation cancelled.")
         return
+    finally:
+        flink_sessions[user_id]["in_progress"] = False
 
     if answer.text and answer.text.upper() == "CANCEL":
         await answer.reply("❌ Operation cancelled.")
@@ -164,77 +159,103 @@ async def set_format(client: Bot, msg: Message, user_id: int):
         return
 
     if user_id not in flink_sessions:
-        flink_sessions[user_id] = {"format": None, "channel_type": None, "start_msg_id": None}
+        flink_sessions[user_id] = {"format": None, "channel_type": None, "start_msg_id": None, "in_progress": False}
     flink_sessions[user_id]["format"] = format_list
     await answer.reply(f"✅ Format set: {format_summary(format_list)}")
+    LOGGER.info(f"Format set for user {user_id}: {format_list}")
 
 # ====================== START PROCESS ======================
 async def start_process(client: Bot, msg: Message, user_id: int):
-    if user_id not in flink_sessions or not flink_sessions[user_id].get("format"):
-        await client.send_message(user_id, "❌ Please set the format first using /flink.")
-        return
-
-    channel_type = await choose_channel(client, msg, "📌 Select channel for formatted links:")
-    if channel_type is None:
-        return
-
-    if channel_type == "secondary" and not client.secondary_channel:
-        await client.send_message(user_id, "❌ Secondary channel not configured.", reply_markup=ReplyKeyboardRemove())
-        return
-
-    target_channel = client.secondary_channel if channel_type == "secondary" else client.db_channel
-    flink_sessions[user_id]["channel_type"] = channel_type
-
+    LOGGER.info(f"Entering start_process for user {user_id}")
+    flink_sessions[user_id]["in_progress"] = True
     try:
-        start_msg = await client.ask(
-            chat_id=user_id,
-            text=(
-                f"📤 Now forward the <b>first message</b> of the sequence from the "
-                f"{channel_type.capitalize()} DB Channel, or send its link."
-            ),
-            filters=(filters.forwarded | (filters.text & ~filters.forwarded)),
-            timeout=120
+        if user_id not in flink_sessions or not flink_sessions[user_id].get("format"):
+            await client.send_message(user_id, "❌ Please set the format first using /flink.")
+            return
+
+        # Choose channel
+        LOGGER.info("Calling choose_channel")
+        channel_type = await choose_channel(client, msg, "📌 Select channel for formatted links:")
+        if channel_type is None:
+            LOGGER.info("Channel selection cancelled")
+            return
+
+        LOGGER.info(f"Channel selected: {channel_type}")
+
+        if channel_type == "secondary" and not client.secondary_channel:
+            await client.send_message(user_id, "❌ Secondary channel not configured.", reply_markup=ReplyKeyboardRemove())
+            return
+
+        target_channel = client.secondary_channel if channel_type == "secondary" else client.db_channel
+        flink_sessions[user_id]["channel_type"] = channel_type
+
+        # Get starting message
+        LOGGER.info("Asking for starting message")
+        try:
+            start_msg = await client.ask(
+                chat_id=user_id,
+                text=(
+                    f"📤 Now forward the <b>first message</b> of the sequence from the "
+                    f"{channel_type.capitalize()} DB Channel, or send its link."
+                ),
+                filters=(filters.forwarded | (filters.text & ~filters.forwarded)),
+                timeout=120
+            )
+            LOGGER.info(f"Received start message: {start_msg.text if start_msg.text else 'forwarded'}")
+        except TimeoutError:
+            LOGGER.info("Timeout waiting for start message")
+            await client.send_message(user_id, "⏰ Timeout. Operation cancelled.")
+            return
+
+        if start_msg.text and start_msg.text.upper() == "CANCEL":
+            await start_msg.reply("❌ Operation cancelled.")
+            return
+
+        start_id = await get_message_id(client, start_msg)
+        if not start_id:
+            await start_msg.reply(f"❌ Could not get message ID from {channel_type} channel.")
+            LOGGER.warning("get_message_id returned 0")
+            return
+
+        LOGGER.info(f"Start message ID: {start_id}")
+
+        if start_msg.forward_from_chat and start_msg.forward_from_chat.id != target_channel.id:
+            await start_msg.reply(f"❌ This message is not from the {channel_type} DB Channel.")
+            LOGGER.warning("Message not from expected channel")
+            return
+
+        format_list = flink_sessions[user_id]["format"]
+        total_needed = sum(count for _, count in format_list)
+        LOGGER.info(f"Total messages needed: {total_needed}")
+
+        # Encode data for shareable link
+        channel_code = "p" if channel_type == "primary" else "s"
+        format_encoded = encode_format(format_list)
+        data_str = f"flink-{channel_code}-{start_id}-{format_encoded}"
+        base64_param = await encode(data_str)
+        share_link = generate_link(f"flink_{base64_param}", client)
+
+        link_type = get_link_type()
+        link_info = "🔗 **Permanent Link**" if link_type == "Permanent" else "🤖 **Direct Link**"
+
+        text = (
+            f"<b>✅ Formatted Links Generated – Single Shareable Link</b>\n\n"
+            f"<b>{link_info}</b>\n"
+            f"<b>Channel:</b> {target_channel.title}\n"
+            f"<b>Format:</b> {format_summary(format_list)}\n"
+            f"<b>Start Message ID:</b> {start_id}\n\n"
+            f"📎 <b>Share this link with users:</b>\n"
+            f"<code>{share_link}</code>\n\n"
+            f"When clicked, users will see the quality selection buttons."
         )
-    except TimeoutError:
-        await client.send_message(user_id, "⏰ Timeout. Operation cancelled.")
-        return
 
-    if start_msg.text and start_msg.text.upper() == "CANCEL":
-        await start_msg.reply("❌ Operation cancelled.")
-        return
+        await client.send_message(user_id, text, disable_web_page_preview=True)
+        LOGGER.info("Shareable link sent to admin")
 
-    start_id = await get_message_id(client, start_msg)
-    if not start_id:
-        await start_msg.reply(f"❌ Could not get message ID from {channel_type} channel.")
-        return
-
-    if start_msg.forward_from_chat and start_msg.forward_from_chat.id != target_channel.id:
-        await start_msg.reply(f"❌ This message is not from the {channel_type} DB Channel.")
-        return
-
-    format_list = flink_sessions[user_id]["format"]
-    total_needed = sum(count for _, count in format_list)
-
-    # Encode data for shareable link
-    channel_code = "p" if channel_type == "primary" else "s"
-    format_encoded = encode_format(format_list)
-    data_str = f"flink-{channel_code}-{start_id}-{format_encoded}"
-    base64_param = await encode(data_str)
-    share_link = generate_link(f"flink_{base64_param}", client)
-
-    link_type = get_link_type()
-    link_info = "🔗 **Permanent Link**" if link_type == "Permanent" else "🤖 **Direct Link**"
-
-    text = (
-        f"<b>✅ Formatted Links Generated – Single Shareable Link</b>\n\n"
-        f"<b>{link_info}</b>\n"
-        f"<b>Channel:</b> {target_channel.title}\n"
-        f"<b>Format:</b> {format_summary(format_list)}\n"
-        f"<b>Start Message ID:</b> {start_id}\n\n"
-        f"📎 <b>Share this link with users:</b>\n"
-        f"<code>{share_link}</code>\n\n"
-        f"When clicked, users will see the quality selection buttons."
-    )
-
-    await client.send_message(user_id, text, disable_web_page_preview=True)
-    flink_sessions[user_id] = {"format": None, "channel_type": None, "start_msg_id": None}
+    except Exception as e:
+        LOGGER.error(f"Error in start_process: {e}", exc_info=True)
+        await client.send_message(user_id, f"❌ An error occurred: {e}")
+    finally:
+        flink_sessions[user_id]["in_progress"] = False
+        # Optionally clear session
+        flink_sessions[user_id] = {"format": None, "channel_type": None, "start_msg_id": None, "in_progress": False}
