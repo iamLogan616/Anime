@@ -64,6 +64,28 @@ async def start_command(client: Client, message: Message):
 
         string = await decode(base64_string)
         
+        # ---------- NEW: SEQUENCE BATCH HANDLING ----------
+        if string.startswith("seq-"):
+            batch_id = string[4:]  # remove 'seq-'
+            batch = await db.get_seq_batch(batch_id)
+            if not batch:
+                return await message.reply("❌ Invalid or expired sequence batch link.")
+
+            # Build menu with buttons for each file
+            buttons = []
+            for i, (msg_id, title) in enumerate(zip(batch['message_ids'], batch['titles'])):
+                callback_data = f"seqfile|{batch_id}|{i}"
+                buttons.append([InlineKeyboardButton(title, callback_data=callback_data)])
+
+            buttons.append([InlineKeyboardButton("❌ Close", callback_data="close")])
+
+            await message.reply(
+                f"<b>📂 Sequence Batch</b>\n\nClick a button to get the file.",
+                reply_markup=InlineKeyboardMarkup(buttons)
+            )
+            return
+        # -------------------------------------------------
+        
         # Check if it's a secondary channel link
         if string.startswith("sec-"):
             channel_type = "secondary"
@@ -282,3 +304,88 @@ async def not_joined(client: Client, message: Message):
 async def bcmd(bot: Bot, message: Message):        
     reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("• ᴄʟᴏsᴇ •", callback_data = "close")]])
     await message.reply(text=CMD_TXT, reply_markup = reply_markup, quote= True)
+
+
+# ---------- NEW: SEQUENCE BATCH CALLBACK HANDLER ----------
+async def delete_after_delay(message, delay, menu_message):
+    await asyncio.sleep(delay)
+    try:
+        await message.delete()
+    except:
+        pass
+    try:
+        await menu_message.reply("<b><i>⏰ Time is over\nYour file has been deleted ✅</i></b>")
+    except:
+        pass
+
+@Bot.on_callback_query(filters.regex(r'^seqfile\|(.+)\|(\d+)$'))
+async def seqfile_callback(client: Client, callback_query):
+    _, batch_id, index = callback_query.data.split('|')
+    index = int(index)
+    user_id = callback_query.from_user.id
+
+    # Re-check force subscription (optional but safe)
+    if not await is_subscribed(client, user_id):
+        await callback_query.answer("You need to join the channels first.", show_alert=True)
+        return
+
+    batch = await db.get_seq_batch(batch_id)
+    if not batch:
+        await callback_query.answer("Batch not found.", show_alert=True)
+        await callback_query.message.delete()
+        return
+
+    if index >= len(batch['message_ids']):
+        await callback_query.answer("Invalid file index.", show_alert=True)
+        return
+
+    channel_type = batch['channel_type']
+    msg_id = batch['message_ids'][index]
+    target_channel = client.secondary_channel if channel_type == "secondary" else client.db_channel
+    if not target_channel:
+        await callback_query.answer("Channel not available.", show_alert=True)
+        return
+
+    # Fetch the message from the DB channel
+    try:
+        msg = await client.get_messages(target_channel.id, msg_id)
+    except Exception as e:
+        await callback_query.answer(f"Error fetching file: {e}", show_alert=True)
+        return
+
+    if not msg:
+        await callback_query.answer("File not found.", show_alert=True)
+        return
+
+    # Prepare caption
+    caption = (CUSTOM_CAPTION.format(previouscaption="" if not msg.caption else msg.caption.html,
+                                      filename=msg.document.file_name if msg.document else "")
+               if bool(CUSTOM_CAPTION) and bool(msg.document)
+               else ("" if not msg.caption else msg.caption.html))
+
+    # Send the file
+    try:
+        sent_msg = await msg.copy(
+            chat_id=user_id,
+            caption=caption,
+            parse_mode=ParseMode.HTML,
+            protect_content=PROTECT_CONTENT
+        )
+    except FloodWait as e:
+        await asyncio.sleep(e.x)
+        sent_msg = await msg.copy(
+            chat_id=user_id,
+            caption=caption,
+            parse_mode=ParseMode.HTML,
+            protect_content=PROTECT_CONTENT
+        )
+    except Exception as e:
+        await callback_query.answer(f"Failed to send: {e}", show_alert=True)
+        return
+
+    # Auto‑delete if enabled
+    FILE_AUTO_DELETE = await db.get_del_timer()
+    if FILE_AUTO_DELETE > 0:
+        asyncio.create_task(delete_after_delay(sent_msg, FILE_AUTO_DELETE, callback_query.message))
+
+    await callback_query.answer("File sent!", show_alert=False)
