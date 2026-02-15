@@ -1,5 +1,11 @@
-#(©)CodeFlix_Bots
-#rohit_1888 on Tg #Dont remove this line
+# Don't Remove Credit @Yeon_Bots
+# Ask Doubt on telegram @MrXeonTg
+# Copyright (C) 2026 by Yeon-Bots
+# ===============================[ ᴍᴀᴅᴇ ᴡɪᴛʜ 🤍 ʙʏ @YEON_bots × Copyright (C) 2026 by Yeon-Bots@Github, < https://github.com/MrYKTG>. Copyright (C) 2026 by Yeon-Bots@Telegram, < https://t.me/Yeon_Bots >.  ]==============================
+# ᴅᴏɴ'ᴛ sᴇʟʟ • ᴅᴏɴ'ᴛ ᴄʟᴀɪᴍ ᴀs ʏᴏᴜʀs • sᴜᴘᴘᴏʀᴛ: t.me/Yeon_bots • ʀᴇᴘᴏʀᴛ ʙᴜɢs: @MrXeontg
+# ==================================================================================================
+# All rights reserved.
+#
 
 import base64
 import re
@@ -185,24 +191,14 @@ def get_exp_time(seconds):
             result += f'{int(period_value)} {period_name}'
     return result
 
-
-# ---------- NEW: LINK GENERATION HELPERS (from config) ----------
-def generate_link(base64_string, client):
-    """Generate a permanent or direct link based on config."""
-    if PERMANENT_LINKS and BLOGSPOT_URL:
-        return f"{BLOGSPOT_URL}?{BLOGSPOT_PARAM}={base64_string}"
-    else:
-        return f"https://t.me/{client.username}?start={base64_string}"
-
-def get_link_type():
-    """Return link type description."""
-    if PERMANENT_LINKS and BLOGSPOT_URL:
-        return "Permanent"
-    else:
-        return "Direct"
-
-
 subscribed = filters.create(is_subscribed)
 admin = filters.create(check_admin)
 
-#rohit_1888 on Tg :
+# Don't Remove Credit @Yeon_Bots
+# Ask Doubt on telegram @MrXeonTg
+# Copyright (C) 2026 by Yeon-Bots
+# ===============================[ ᴍᴀᴅᴇ ᴡɪᴛʜ 🤍 ʙʏ @YEON_bots × Copyright (C) 2026 by Yeon-Bots@Github, < https://github.com/MrYKTG>. Copyright (C) 2026 by Yeon-Bots@Telegram, < https://t.me/Yeon_Bots >.  ]==============================
+# ᴅᴏɴ'ᴛ sᴇʟʟ • ᴅᴏɴ'ᴛ ᴄʟᴀɪᴍ ᴀs ʏᴏᴜʀs • sᴜᴘᴘᴏʀᴛ: t.me/Yeon_bots • ʀᴇᴘᴏʀᴛ ʙᴜɢs: @MrXeontg
+# ==================================================================================================
+# All rights reserved.
+#
