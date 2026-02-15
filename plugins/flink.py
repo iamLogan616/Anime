@@ -1,5 +1,5 @@
 # plugins/flink.py
-# Formatted Link Generator – with detailed logging
+# Formatted Link Generator – with priority groups and debug logging
 
 import re
 import logging
@@ -22,6 +22,7 @@ logging.basicConfig(
     format="[%(asctime)s - %(levelname)s] - %(name)s - %(message)s"
 )
 LOGGER = logging.getLogger(__name__)
+LOGGER.info("flink.py module loaded")  # Confirm module load
 
 # ====================== SESSION STORAGE ======================
 flink_sessions = {}
@@ -58,6 +59,14 @@ def decode_format(encoded):
             result.append((quality, count))
     return result
 
+# ====================== GLOBAL DEBUG HANDLER (group=-2) ======================
+@Bot.on_callback_query(group=-2)
+async def debug_all_callbacks(client: Bot, callback: CallbackQuery):
+    """Logs every callback before any other handler runs."""
+    LOGGER.info(f"🔍 DEBUG - Callback received: {callback.data} from user {callback.from_user.id}")
+    # Always continue to other handlers
+    callback.continue_propagation()
+
 # ====================== MAIN COMMAND ======================
 @Bot.on_message(filters.private & admin & filters.command("flink"))
 async def flink_command(client: Bot, message: Message):
@@ -80,11 +89,11 @@ async def flink_command(client: Bot, message: Message):
     )
     await message.reply(text, reply_markup=InlineKeyboardMarkup(buttons))
 
-# ====================== DEDICATED CALLBACK HANDLER ======================
-@Bot.on_callback_query(filters.regex(r"^flink:"))
+# ====================== DEDICATED FLINK HANDLER (group=-1) ======================
+@Bot.on_callback_query(filters.regex(r"^flink:"), group=-1)
 async def flink_callback(client: Bot, callback: CallbackQuery):
     user_id = callback.from_user.id
-    LOGGER.info(f"Dedicated handler: callback {callback.data} from user {user_id}")
+    LOGGER.info(f"🎯 Dedicated handler: callback {callback.data} from user {user_id}")
 
     try:
         # Always answer immediately to stop loading animation
