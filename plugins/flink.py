@@ -2,6 +2,7 @@
 # Formatted Link Generator (multi-quality batch links)
 
 import re
+import logging
 from pyrogram import filters
 from pyrogram.types import (
     Message, InlineKeyboardMarkup, InlineKeyboardButton,
@@ -14,6 +15,10 @@ from config import *
 from helper_func import admin, encode, get_message_id, get_messages
 from database.database import db
 from plugins.link_generator import choose_channel, generate_link, get_link_type
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+LOGGER = logging.getLogger(__name__)
 
 # Temporary session storage for each admin
 # Format: {user_id: {"format": [(quality, count), ...], "channel_type": "primary"/"secondary", "start_msg_id": int}}
@@ -69,21 +74,41 @@ async def flink_command(client: Bot, message: Message):
 @Bot.on_callback_query(filters.regex(r"^flink_"))
 async def flink_callback(client: Bot, callback: CallbackQuery):
     user_id = callback.from_user.id
-    data = callback.data.split("_")[1]  # set, start, refresh
+    try:
+        # Split the callback data
+        parts = callback.data.split("_")
+        if len(parts) < 2:
+            await callback.answer("Invalid callback data.", show_alert=True)
+            return
+        action = parts[1]  # set, start, refresh
 
-    if data == "set":
-        await callback.message.delete()
-        await set_format(client, callback.message, user_id)
+        if action == "set":
+            await callback.message.delete()
+            await set_format(client, callback.message, user_id)
+            await callback.answer()  # Answer after deletion and set_format
 
-    elif data == "start":
-        await callback.message.delete()
-        await start_process(client, callback.message, user_id)
+        elif action == "start":
+            await callback.message.delete()
+            await start_process(client, callback.message, user_id)
+            await callback.answer()
 
-    elif data == "refresh":
-        current = format_summary(flink_sessions.get(user_id, {}).get("format"))
-        await callback.answer(f"Current format: {current}", show_alert=True)
+        elif action == "refresh":
+            # Ensure user session exists
+            if user_id not in flink_sessions:
+                flink_sessions[user_id] = {"format": None, "channel_type": None, "start_msg_id": None}
+            current = format_summary(flink_sessions[user_id].get("format"))
+            await callback.answer(f"Current format: {current}", show_alert=True)
 
-    await callback.answer()
+        else:
+            await callback.answer("Unknown action.", show_alert=True)
+
+    except Exception as e:
+        LOGGER.error(f"Error in flink_callback for user {user_id}: {e}")
+        # Always answer the callback to stop loading animation
+        try:
+            await callback.answer("An error occurred. Please try again.", show_alert=True)
+        except:
+            pass
 
 # ====================== Step Functions ======================
 
@@ -118,13 +143,15 @@ async def set_format(client: Bot, msg: Message, user_id: int):
         return
 
     # Store in session
+    if user_id not in flink_sessions:
+        flink_sessions[user_id] = {"format": None, "channel_type": None, "start_msg_id": None}
     flink_sessions[user_id]["format"] = format_list
     await answer.reply(f"✅ Format set: {format_summary(format_list)}")
 
 async def start_process(client: Bot, msg: Message, user_id: int):
     """Start the link generation process."""
     # Check if format is set
-    if not flink_sessions[user_id].get("format"):
+    if user_id not in flink_sessions or not flink_sessions[user_id].get("format"):
         await client.send_message(user_id, "❌ Please set the format first using /flink.")
         return
 
