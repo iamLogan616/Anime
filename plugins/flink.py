@@ -1,5 +1,5 @@
 # plugins/flink.py
-# Formatted Link Generator – with priority groups and debug logging
+# Formatted Link Generator – with clear admin output and logging
 
 import re
 import logging
@@ -16,18 +16,11 @@ from helper_func import admin, encode, decode, get_message_id, get_messages
 from database.database import db
 from plugins.link_generator import choose_channel, generate_link, get_link_type
 
-# ============================ LOGGING ============================
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s - %(levelname)s] - %(name)s - %(message)s"
-)
 LOGGER = logging.getLogger(__name__)
-LOGGER.info("flink.py module loaded")  # Confirm module load
+LOGGER.info("flink.py module loaded")
 
-# ====================== SESSION STORAGE ======================
 flink_sessions = {}
 
-# ====================== HELPER FUNCTIONS ======================
 def parse_format(text: str):
     pairs = [p.strip() for p in text.split(',')]
     result = []
@@ -59,14 +52,6 @@ def decode_format(encoded):
             result.append((quality, count))
     return result
 
-# ====================== GLOBAL DEBUG HANDLER (group=-2) ======================
-@Bot.on_callback_query(group=-2)
-async def debug_all_callbacks(client: Bot, callback: CallbackQuery):
-    """Logs every callback before any other handler runs."""
-    LOGGER.info(f"🔍 DEBUG - Callback received: {callback.data} from user {callback.from_user.id}")
-    # Always continue to other handlers
-    callback.continue_propagation()
-
 # ====================== MAIN COMMAND ======================
 @Bot.on_message(filters.private & admin & filters.command("flink"))
 async def flink_command(client: Bot, message: Message):
@@ -89,33 +74,31 @@ async def flink_command(client: Bot, message: Message):
     )
     await message.reply(text, reply_markup=InlineKeyboardMarkup(buttons))
 
-# ====================== DEDICATED FLINK HANDLER (group=-1) ======================
+# ====================== GLOBAL DEBUG HANDLER ======================
+@Bot.on_callback_query(group=-2)
+async def debug_all_callbacks(client: Bot, callback: CallbackQuery):
+    LOGGER.info(f"🔍 DEBUG - Callback received: {callback.data} from user {callback.from_user.id}")
+    callback.continue_propagation()
+
+# ====================== DEDICATED FLINK HANDLER ======================
 @Bot.on_callback_query(filters.regex(r"^flink:"), group=-1)
 async def flink_callback(client: Bot, callback: CallbackQuery):
     user_id = callback.from_user.id
     LOGGER.info(f"🎯 Dedicated handler: callback {callback.data} from user {user_id}")
 
     try:
-        # Always answer immediately to stop loading animation
         await callback.answer()
-        LOGGER.info("Callback answered")
-
-        # Parse action
         action = callback.data.split(":", 1)[1]
-        LOGGER.info(f"Action: {action}")
 
         if action == "set":
-            LOGGER.info("Deleting message and calling set_format")
             await callback.message.delete()
             await set_format(client, callback.message, user_id)
 
         elif action == "start":
-            LOGGER.info("Deleting message and calling start_process")
             await callback.message.delete()
             await start_process(client, callback.message, user_id)
 
         elif action == "refresh":
-            LOGGER.info("Refresh action")
             if user_id not in flink_sessions:
                 flink_sessions[user_id] = {"format": None, "channel_type": None, "start_msg_id": None, "in_progress": False}
             current = format_summary(flink_sessions[user_id].get("format"))
@@ -147,7 +130,6 @@ async def set_format(client: Bot, msg: Message, user_id: int):
             ),
             timeout=120
         )
-        LOGGER.info(f"Received answer: {answer.text if answer.text else 'no text'}")
     except TimeoutError:
         LOGGER.info("Timeout in set_format")
         await client.send_message(user_id, "⏰ Timeout. Operation cancelled.")
@@ -182,7 +164,6 @@ async def start_process(client: Bot, msg: Message, user_id: int):
             await client.send_message(user_id, "❌ Please set the format first using /flink.")
             return
 
-        # Choose channel
         LOGGER.info("Calling choose_channel")
         channel_type = await choose_channel(client, msg, "📌 Select channel for formatted links:")
         if channel_type is None:
@@ -198,7 +179,6 @@ async def start_process(client: Bot, msg: Message, user_id: int):
         target_channel = client.secondary_channel if channel_type == "secondary" else client.db_channel
         flink_sessions[user_id]["channel_type"] = channel_type
 
-        # Get starting message
         LOGGER.info("Asking for starting message")
         try:
             start_msg = await client.ask(
@@ -210,7 +190,6 @@ async def start_process(client: Bot, msg: Message, user_id: int):
                 filters=(filters.forwarded | (filters.text & ~filters.forwarded)),
                 timeout=120
             )
-            LOGGER.info(f"Received start message: {start_msg.text if start_msg.text else 'forwarded'}")
         except TimeoutError:
             LOGGER.info("Timeout waiting for start message")
             await client.send_message(user_id, "⏰ Timeout. Operation cancelled.")
@@ -244,18 +223,19 @@ async def start_process(client: Bot, msg: Message, user_id: int):
         base64_param = await encode(data_str)
         share_link = generate_link(f"flink_{base64_param}", client)
 
-        link_type = get_link_type()
-        link_info = "🔗 **Permanent Link**" if link_type == "Permanent" else "🤖 **Direct Link**"
+        # 🔍 LOG THE GENERATED LINK
+        LOGGER.info(f"✅ Generated share link for admin {user_id}: {share_link}")
 
+        # Force the link type display to "Direct" for flink links
         text = (
             f"<b>✅ Formatted Links Generated – Single Shareable Link</b>\n\n"
-            f"<b>{link_info}</b>\n"
+            f"<b>🔗 Direct Link (copy this):</b>\n"
+            f"<code>{share_link}</code>\n\n"
             f"<b>Channel:</b> {target_channel.title}\n"
             f"<b>Format:</b> {format_summary(format_list)}\n"
             f"<b>Start Message ID:</b> {start_id}\n\n"
-            f"📎 <b>Share this link with users:</b>\n"
-            f"<code>{share_link}</code>\n\n"
-            f"When clicked, users will see the quality selection buttons."
+            f"📎 <b>Important:</b> This link is a <b>direct Telegram link</b>. "
+            f"Share it exactly as shown – do not use any BlogSpot redirect."
         )
 
         await client.send_message(user_id, text, disable_web_page_preview=True)
@@ -266,5 +246,4 @@ async def start_process(client: Bot, msg: Message, user_id: int):
         await client.send_message(user_id, f"❌ An error occurred: {e}")
     finally:
         flink_sessions[user_id]["in_progress"] = False
-        # Optionally clear session
         flink_sessions[user_id] = {"format": None, "channel_type": None, "start_msg_id": None, "in_progress": False}
