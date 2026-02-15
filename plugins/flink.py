@@ -1,7 +1,8 @@
 # plugins/flink.py
-# Formatted Link Generator (multi-quality batch links)
+# Formatted Link Generator (multi-quality batch links) - Single Shareable Link
 
 import re
+import json
 import logging
 from pyrogram import filters
 from pyrogram.types import (
@@ -12,7 +13,7 @@ from pyrogram.errors import FloodWait
 from asyncio import TimeoutError
 from bot import Bot
 from config import *
-from helper_func import admin, encode, get_message_id, get_messages
+from helper_func import admin, encode, decode, get_message_id, get_messages
 from database.database import db
 from plugins.link_generator import choose_channel, generate_link, get_link_type
 
@@ -24,7 +25,6 @@ logging.basicConfig(
 LOGGER = logging.getLogger(__name__)
 
 # ====================== SESSION STORAGE ======================
-# Format: {user_id: {"format": [(quality, count), ...], "channel_type": str, "start_msg_id": int}}
 flink_sessions = {}
 
 # ====================== HELPER FUNCTIONS ======================
@@ -47,17 +47,32 @@ def format_summary(format_list):
         return "Not set"
     return ", ".join(f"{q} = {c}" for q, c in format_list)
 
+def encode_format(format_list):
+    """Encode format list into a compact string like '360P2_480P2_720P2'."""
+    return "_".join(f"{quality}{count}" for quality, count in format_list)
+
+def decode_format(encoded):
+    """Decode format string like '360P2_480P2_720P2' back to list of (quality, count)."""
+    result = []
+    parts = encoded.split("_")
+    for part in parts:
+        match = re.match(r'^([A-Za-z0-9]+)(\d+)$', part)
+        if match:
+            quality = match.group(1)
+            count = int(match.group(2))
+            result.append((quality, count))
+    return result
+
 # ====================== MAIN COMMAND ======================
 @Bot.on_message(filters.private & admin & filters.command("flink"))
 async def flink_command(client: Bot, message: Message):
     user_id = message.from_user.id
     LOGGER.info(f"User {user_id} issued /flink command")
 
-    # Initialize session if not exists
+    # Initialize session
     if user_id not in flink_sessions:
         flink_sessions[user_id] = {"format": None, "channel_type": None, "start_msg_id": None}
 
-    # Main menu buttons (using colon in callback data for reliable splitting)
     buttons = [
         [InlineKeyboardButton("• sᴇᴛ ғᴏʀᴍᴀᴛ •", callback_data="flink:set")],
         [InlineKeyboardButton("• sᴛᴀʀᴛ ᴘʀᴏᴄᴇss •", callback_data="flink:start")],
@@ -78,11 +93,8 @@ async def flink_callback(client: Bot, callback: CallbackQuery):
     LOGGER.info(f"Callback received: {callback.data} from user {user_id}")
 
     try:
-        # Always answer the callback immediately to stop loading animation
         await callback.answer()
-
-        # Extract action (everything after "flink:")
-        action = callback.data.split(":", 1)[1]  # "set", "start", "refresh"
+        action = callback.data.split(":", 1)[1]
 
         if action == "set":
             await callback.message.delete()
@@ -104,15 +116,13 @@ async def flink_callback(client: Bot, callback: CallbackQuery):
 
     except Exception as e:
         LOGGER.error(f"Error in flink_callback for user {user_id}: {e}", exc_info=True)
-        # Ensure callback is answered even if something crashed
         try:
             await callback.answer("An error occurred. Please try again.", show_alert=True)
         except:
             pass
 
-# ====================== STEP FUNCTIONS ======================
+# ====================== SET FORMAT ======================
 async def set_format(client: Bot, msg: Message, user_id: int):
-    """Ask user for the format string and store it."""
     try:
         answer = await client.ask(
             chat_id=user_id,
@@ -141,20 +151,18 @@ async def set_format(client: Bot, msg: Message, user_id: int):
         )
         return
 
-    # Store in session
     if user_id not in flink_sessions:
         flink_sessions[user_id] = {"format": None, "channel_type": None, "start_msg_id": None}
     flink_sessions[user_id]["format"] = format_list
     await answer.reply(f"✅ Format set: {format_summary(format_list)}")
 
+# ====================== START PROCESS (ADMIN) ======================
 async def start_process(client: Bot, msg: Message, user_id: int):
-    """Start the link generation process."""
-    # Check if format is set
     if user_id not in flink_sessions or not flink_sessions[user_id].get("format"):
         await client.send_message(user_id, "❌ Please set the format first using /flink.")
         return
 
-    # Choose channel (primary or secondary)
+    # Choose channel
     channel_type = await choose_channel(client, msg, "📌 Select channel for formatted links:")
     if channel_type is None:
         return
@@ -166,7 +174,7 @@ async def start_process(client: Bot, msg: Message, user_id: int):
     target_channel = client.secondary_channel if channel_type == "secondary" else client.db_channel
     flink_sessions[user_id]["channel_type"] = channel_type
 
-    # Get the starting message from the user
+    # Get starting message
     try:
         start_msg = await client.ask(
             chat_id=user_id,
@@ -190,85 +198,42 @@ async def start_process(client: Bot, msg: Message, user_id: int):
         await start_msg.reply(f"❌ Could not get message ID from {channel_type} channel.")
         return
 
-    # Verify it's from the correct channel
-    if start_msg.forward_from_chat:
-        expected_id = target_channel.id
-        if start_msg.forward_from_chat.id != expected_id:
-            await start_msg.reply(f"❌ This message is not from the {channel_type} DB Channel.")
-            return
-    else:
-        # If it's a link, we trust get_message_id already checked the channel.
-        pass
+    # Verify channel
+    if start_msg.forward_from_chat and start_msg.forward_from_chat.id != target_channel.id:
+        await start_msg.reply(f"❌ This message is not from the {channel_type} DB Channel.")
+        return
 
-    # Calculate total files needed
+    # Calculate total files
     format_list = flink_sessions[user_id]["format"]
     total_needed = sum(count for _, count in format_list)
-    end_id = start_id + total_needed - 1
 
-    # Fetch the messages from the DB channel
-    try:
-        messages = await get_messages(client, list(range(start_id, end_id + 1)), channel=channel_type)
-    except Exception as e:
-        await start_msg.reply(f"❌ Failed to fetch messages: {e}")
-        return
+    # Encode data for the shareable link
+    # Format: flink-{channel_type}-{start_id}-{format_encoded}
+    channel_code = "p" if channel_type == "primary" else "s"
+    format_encoded = encode_format(format_list)
+    data_str = f"flink-{channel_code}-{start_id}-{format_encoded}"
+    base64_param = await encode(data_str)
+    share_link = generate_link(f"flink_{base64_param}", client)  # generate_link expects base64 part only
 
-    if len(messages) < total_needed:
-        await start_msg.reply(
-            f"❌ Not enough messages in the channel.\n"
-            f"Required: {total_needed}, Found: {len(messages)}"
-        )
-        return
-
-    # Build batch links for each quality
-    multiplier = abs(target_channel.id)
-    current_index = 0
-    quality_buttons = []
-
-    for quality, count in format_list:
-        if count == 0:
-            continue
-
-        # Get the slice of message IDs for this quality
-        msg_ids = [msg.id for msg in messages[current_index:current_index + count]]
-        if not msg_ids:
-            continue
-
-        # Create a batch link for this quality range
-        start_id_mult = msg_ids[0] * multiplier
-        end_id_mult = msg_ids[-1] * multiplier
-        string = f"get-{start_id_mult}-{end_id_mult}"
-        if channel_type == "secondary":
-            string = f"sec-{string}"
-
-        base64_string = await encode(string)
-        link = generate_link(base64_string, client)
-
-        # Add button for this quality
-        quality_buttons.append([InlineKeyboardButton(text=quality, url=link)])
-
-        current_index += count
-
-    # Send the final message with all quality buttons
     link_type = get_link_type()
-    link_info = (
-        "🔗 **Permanent Link**" if link_type == "Permanent" else "🤖 **Direct Link**"
-    )
+    link_info = "🔗 **Permanent Link**" if link_type == "Permanent" else "🤖 **Direct Link**"
 
     text = (
-        f"<b>✅ Formatted Links Generated</b>\n\n"
+        f"<b>✅ Formatted Links Generated – Single Shareable Link</b>\n\n"
         f"<b>{link_info}</b>\n"
         f"<b>Channel:</b> {target_channel.title}\n"
         f"<b>Format:</b> {format_summary(format_list)}\n"
         f"<b>Start Message ID:</b> {start_id}\n\n"
-        f"Click the buttons below to get files for each quality."
+        f"📎 <b>Share this link with users:</b>\n"
+        f"<code>{share_link}</code>\n\n"
+        f"When clicked, users will see the quality selection buttons."
     )
 
     await client.send_message(
         user_id,
         text,
-        reply_markup=InlineKeyboardMarkup(quality_buttons),
         disable_web_page_preview=True
     )
 
-    # Clear session data (optional)
+    # Clear session
     flink_sessions[user_id] = {"format": None, "channel_type": None, "start_msg_id": None}
