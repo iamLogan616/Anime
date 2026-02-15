@@ -16,16 +16,18 @@ from helper_func import admin, encode, get_message_id, get_messages
 from database.database import db
 from plugins.link_generator import choose_channel, generate_link, get_link_type
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+# ============================ LOGGING ============================
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s - %(levelname)s] - %(name)s - %(message)s"
+)
 LOGGER = logging.getLogger(__name__)
 
-# Temporary session storage for each admin
-# Format: {user_id: {"format": [(quality, count), ...], "channel_type": "primary"/"secondary", "start_msg_id": int}}
+# ====================== SESSION STORAGE ======================
+# Format: {user_id: {"format": [(quality, count), ...], "channel_type": str, "start_msg_id": int}}
 flink_sessions = {}
 
-# ====================== Helper Functions ======================
-
+# ====================== HELPER FUNCTIONS ======================
 def parse_format(text: str):
     """Parse format string like '360P = 2, 480P = 2, 720P = 2' into list of (quality, count)."""
     pairs = [p.strip() for p in text.split(',')]
@@ -45,21 +47,21 @@ def format_summary(format_list):
         return "Not set"
     return ", ".join(f"{q} = {c}" for q, c in format_list)
 
-# ====================== Main Command ======================
-
+# ====================== MAIN COMMAND ======================
 @Bot.on_message(filters.private & admin & filters.command("flink"))
 async def flink_command(client: Bot, message: Message):
     user_id = message.from_user.id
+    LOGGER.info(f"User {user_id} issued /flink command")
 
     # Initialize session if not exists
     if user_id not in flink_sessions:
         flink_sessions[user_id] = {"format": None, "channel_type": None, "start_msg_id": None}
 
-    # Main menu buttons
+    # Main menu buttons (using colon in callback data for reliable splitting)
     buttons = [
-        [InlineKeyboardButton("• sᴇᴛ ғᴏʀᴍᴀᴛ •", callback_data="flink_set")],
-        [InlineKeyboardButton("• sᴛᴀʀᴛ ᴘʀᴏᴄᴇss •", callback_data="flink_start")],
-        [InlineKeyboardButton("🔄 Refresh", callback_data="flink_refresh")]
+        [InlineKeyboardButton("• sᴇᴛ ғᴏʀᴍᴀᴛ •", callback_data="flink:set")],
+        [InlineKeyboardButton("• sᴛᴀʀᴛ ᴘʀᴏᴄᴇss •", callback_data="flink:start")],
+        [InlineKeyboardButton("🔄 Refresh", callback_data="flink:refresh")]
     ]
     current_format = format_summary(flink_sessions[user_id]["format"])
     text = (
@@ -69,49 +71,46 @@ async def flink_command(client: Bot, message: Message):
     )
     await message.reply(text, reply_markup=InlineKeyboardMarkup(buttons))
 
-# ====================== Callback Handlers ======================
-
-@Bot.on_callback_query(filters.regex(r"^flink_"))
+# ====================== CALLBACK HANDLER ======================
+@Bot.on_callback_query(filters.regex(r"^flink:"))
 async def flink_callback(client: Bot, callback: CallbackQuery):
     user_id = callback.from_user.id
+    LOGGER.info(f"Callback received: {callback.data} from user {user_id}")
+
     try:
-        # Split the callback data
-        parts = callback.data.split("_")
-        if len(parts) < 2:
-            await callback.answer("Invalid callback data.", show_alert=True)
-            return
-        action = parts[1]  # set, start, refresh
+        # Always answer the callback immediately to stop loading animation
+        await callback.answer()
+
+        # Extract action (everything after "flink:")
+        action = callback.data.split(":", 1)[1]  # "set", "start", "refresh"
 
         if action == "set":
             await callback.message.delete()
             await set_format(client, callback.message, user_id)
-            await callback.answer()  # Answer after deletion and set_format
 
         elif action == "start":
             await callback.message.delete()
             await start_process(client, callback.message, user_id)
-            await callback.answer()
 
         elif action == "refresh":
-            # Ensure user session exists
             if user_id not in flink_sessions:
                 flink_sessions[user_id] = {"format": None, "channel_type": None, "start_msg_id": None}
             current = format_summary(flink_sessions[user_id].get("format"))
             await callback.answer(f"Current format: {current}", show_alert=True)
 
         else:
-            await callback.answer("Unknown action.", show_alert=True)
+            LOGGER.warning(f"Unknown action '{action}' from user {user_id}")
+            await callback.answer("Unknown action", show_alert=True)
 
     except Exception as e:
-        LOGGER.error(f"Error in flink_callback for user {user_id}: {e}")
-        # Always answer the callback to stop loading animation
+        LOGGER.error(f"Error in flink_callback for user {user_id}: {e}", exc_info=True)
+        # Ensure callback is answered even if something crashed
         try:
             await callback.answer("An error occurred. Please try again.", show_alert=True)
         except:
             pass
 
-# ====================== Step Functions ======================
-
+# ====================== STEP FUNCTIONS ======================
 async def set_format(client: Bot, msg: Message, user_id: int):
     """Ask user for the format string and store it."""
     try:
