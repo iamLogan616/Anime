@@ -83,10 +83,18 @@ async def encode(string):
     return base64_string
 
 async def decode(base64_string):
-    base64_string = base64_string.strip("=") # links generated before this commit will be having = sign, hence striping them to handle padding errors.
-    base64_bytes = (base64_string + "=" * (-len(base64_string) % 4)).encode("ascii")
-    string_bytes = base64.urlsafe_b64decode(base64_bytes) 
-    string = string_bytes.decode("ascii")
+    """Robust decoder that handles non-ASCII bytes gracefully."""
+    base64_string = base64_string.strip("=")
+    # Pad to multiple of 4
+    padded = base64_string + "=" * (-len(base64_string) % 4)
+    # Use latin-1 encoding which maps bytes 0-255 directly to Unicode
+    base64_bytes = padded.encode("latin-1")
+    string_bytes = base64.urlsafe_b64decode(base64_bytes)
+    # Try UTF‑8 first, fallback to latin‑1
+    try:
+        string = string_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        string = string_bytes.decode("latin-1")
     return string
 
 async def get_messages(client, message_ids, channel="primary"):
@@ -136,7 +144,7 @@ async def get_message_id(client, message):
     elif message.forward_sender_name:
         return 0
     elif message.text:
-        pattern = "https://t.me/(?:c/)?(.*)/(\d+)"
+        pattern = "https://t.me/(?:c/)?(.*)/(\\d+)"
         matches = re.match(pattern,message.text)
         if not matches:
             return 0
