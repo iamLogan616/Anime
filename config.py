@@ -23,8 +23,6 @@ APP_ID = int(os.environ.get("APP_ID", "15529802")) #Your API ID from my.telegram
 API_HASH = os.environ.get("API_HASH", "92bcb6aa798a6f1feadbc917fccb54d3") #Your API Hash from my.telegram.org
 #--------------------------------------------
 # Add near other configuration variables
-SEQUENCE_BATCH_ENABLED = os.environ.get("SEQUENCE_BATCH_ENABLED", "True") == "True"
-# Permanent Link System (VJ Style)
 PERMANENT_LINKS = os.environ.get("PERMANENT_LINKS", "True") == "True"
 BLOGSPOT_URL = os.environ.get("BLOGSPOT_URL", "https://animexeon.blogspot.com/2026/02/animeredirect.html")
 BLOGSPOT_PARAM = os.environ.get("BLOGSPOT_PARAM", "Xeonflix")
