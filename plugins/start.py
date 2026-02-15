@@ -1,11 +1,5 @@
-# Don't Remove Credit @Yeon_Bots
-# Ask Doubt on telegram @MrXeonTg
-# Copyright (C) 2026 by Yeon-Bots
-# ===============================[ ᴍᴀᴅᴇ ᴡɪᴛʜ 🤍 ʙʏ @YEON_bots × Copyright (C) 2026 by Yeon-Bots@Github, < https://github.com/MrYKTG>. Copyright (C) 2026 by Yeon-Bots@Telegram, < https://t.me/Yeon_Bots >.  ]==============================
-# ᴅᴏɴ'ᴛ sᴇʟʟ • ᴅᴏɴ'ᴛ ᴄʟᴀɪᴍ ᴀs ʏᴏᴜʀs • sᴜᴘᴘᴏʀᴛ: t.me/Yeon_bots • ʀᴇᴘᴏʀᴛ ʙᴜɢs: @MrXeontg
-# ==================================================================================================
-# All rights reserved.
-#
+# plugins/start.py
+# Full version with flink support and corruption detection
 
 import asyncio
 import os
@@ -31,9 +25,7 @@ LOGGER = logging.getLogger(__name__)
 
 BAN_SUPPORT = f"{BAN_SUPPORT}"
 
-# ====================== FLINK HELPER ======================
 def decode_format(encoded):
-    """Decode format string like '360P2_480P2_720P2' back to list of (quality, count)."""
     result = []
     parts = encoded.split("_")
     for part in parts:
@@ -44,27 +36,23 @@ def decode_format(encoded):
             result.append((quality, count))
     return result
 
-# ====================== START COMMAND ======================
 @Bot.on_message(filters.command('start') & filters.private)
 async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
 
-    # --- Flink session guard: prevent /start from interrupting active flink process ---
+    # Flink session guard
     if user_id in flink_sessions and flink_sessions[user_id].get("in_progress"):
         await message.reply("⏳ Please complete the current flink process first (type CANCEL if needed).")
         return
 
-    # Check if user is banned
     banned_users = await db.get_ban_users()
     if user_id in banned_users:
         return await message.reply_text(
             "<b>⛔️ You are Bᴀɴɴᴇᴅ from using this bot.</b>\n\n"
             "<i>Contact support if you think this is a mistake.</i>",
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("Contact Support", url=BAN_SUPPORT)]]
-            )
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Contact Support", url=BAN_SUPPORT)]])
         )
-    # ✅ Check Force Subscription
+
     if not await is_subscribed(client, user_id):
         return await not_joined(client, message)
 
@@ -94,9 +82,8 @@ async def start_command(client: Client, message: Message):
                 "Please ask the admin to share the **direct bot link** (starting with `https://t.me/`) instead of a BlogSpot link."
             )
 
-        # ========== FLINK (Formatted Link) Handler ==========
+        # ========== FLINK HANDLER ==========
         if string.startswith("flink-"):
-            # Format: flink-{channel_code}-{start_id}-{format_encoded}
             parts = string.split("-")
             if len(parts) != 4:
                 return await message.reply("❌ Invalid formatted link.")
@@ -162,7 +149,7 @@ async def start_command(client: Client, message: Message):
             )
             return
 
-        # ========== Existing Secondary/Primary Link Handlers ==========
+        # ========== EXISTING LINK HANDLERS ==========
         if string.startswith("sec-"):
             channel_type = "secondary"
             string = string[4:]
@@ -174,9 +161,8 @@ async def start_command(client: Client, message: Message):
             target_channel = client.db_channel
 
         argument = string.split("-")
-
         ids = []
-        if len(argument) == 3:  # Batch: get-start-end
+        if len(argument) == 3:
             try:
                 start = int(int(argument[1]) / abs(target_channel.id))
                 end = int(int(argument[2]) / abs(target_channel.id))
@@ -184,8 +170,7 @@ async def start_command(client: Client, message: Message):
             except Exception as e:
                 print(f"Error decoding batch IDs: {e}")
                 return await message.reply("❌ Invalid link format.")
-
-        elif len(argument) == 2:  # Single: get-id
+        elif len(argument) == 2:
             try:
                 ids = [int(int(argument[1]) / abs(target_channel.id))]
             except Exception as e:
@@ -240,32 +225,21 @@ async def start_command(client: Client, message: Message):
             notification_msg = await message.reply(
                 f"<b>⏳ This file will be deleted in {get_exp_time(FILE_AUTO_DELETE)}. Please save or forward it to your saved messages before it gets deleted.</b>"
             )
-
             await asyncio.sleep(FILE_AUTO_DELETE)
-
             for snt_msg in codeflix_msgs:
                 if snt_msg:
                     try:
                         await snt_msg.delete()
                     except Exception as e:
                         print(f"Error deleting message {snt_msg.id}: {e}")
-
             try:
-                await notification_msg.edit(
-                    "<b><i>⏰ Time is over\nYour files has been deleted ✅</i></b>"
-                )
+                await notification_msg.edit("<b><i>⏰ Time is over\nYour files has been deleted ✅</i></b>")
             except Exception as e:
                 print(f"Error updating notification message: {e}")
 
     else:
-        # Normal start command (no deep link)
         reply_markup = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton("• ᴀʙᴏᴜᴛ", callback_data="about"),
-                    InlineKeyboardButton('ʜᴇʟᴘ •', callback_data="help")
-                ]
-            ]
+            [[InlineKeyboardButton("• ᴀʙᴏᴜᴛ", callback_data="about"), InlineKeyboardButton('ʜᴇʟᴘ •', callback_data="help")]]
         )
         await message.reply_photo(
             photo=START_PIC,
