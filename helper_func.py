@@ -1,11 +1,4 @@
-# Don't Remove Credit @Yeon_Bots
-# Ask Doubt on telegram @MrXeonTg
-# Copyright (C) 2026 by Yeon-Bots
-# ===============================[ ᴍᴀᴅᴇ ᴡɪᴛʜ 🤍 ʙʏ @YEON_bots × Copyright (C) 2026 by Yeon-Bots@Github, < https://github.com/MrYKTG>. Copyright (C) 2026 by Yeon-Bots@Telegram, < https://t.me/Yeon_Bots >.  ]==============================
-# ᴅᴏɴ'ᴛ sᴇʟʟ • ᴅᴏɴ'ᴛ ᴄʟᴀɪᴍ ᴀs ʏᴏᴜʀs • sᴜᴘᴘᴏʀᴛ: t.me/Yeon_bots • ʀᴇᴘᴏʀᴛ ʙᴜɢs: @MrXeontg
-# ==================================================================================================
-# All rights reserved.
-#
+# helper_func.py – Robust version with safe decode
 
 import base64
 import re
@@ -18,12 +11,9 @@ from pyrogram.errors.exceptions.bad_request_400 import UserNotParticipant
 from pyrogram.errors import FloodWait
 from database.database import *
 
-
-
-#used for cheking if a user is admin ~Owner also treated as admin level
 async def check_admin(filter, client, update):
     try:
-        user_id = update.from_user.id       
+        user_id = update.from_user.id
         return any([user_id == OWNER_ID, await db.admin_exist(user_id)])
     except Exception as e:
         print(f"! Exception in check_admin: {e}")
@@ -31,50 +21,38 @@ async def check_admin(filter, client, update):
 
 async def is_subscribed(client, user_id):
     channel_ids = await db.show_channels()
-
     if not channel_ids:
         return True
-
     if user_id == OWNER_ID:
         return True
-
     for cid in channel_ids:
         if not await is_sub(client, user_id, cid):
-            # Retry once if join request might be processing
             mode = await db.get_channel_mode(cid)
             if mode == "on":
-                await asyncio.sleep(2)  # give time for @on_chat_join_request to process
+                await asyncio.sleep(2)
                 if await is_sub(client, user_id, cid):
                     continue
             return False
-
     return True
-
 
 async def is_sub(client, user_id, channel_id):
     try:
         member = await client.get_chat_member(channel_id, user_id)
         status = member.status
-        #print(f"[SUB] User {user_id} in {channel_id} with status {status}")
         return status in {
             ChatMemberStatus.OWNER,
             ChatMemberStatus.ADMINISTRATOR,
             ChatMemberStatus.MEMBER
         }
-
     except UserNotParticipant:
         mode = await db.get_channel_mode(channel_id)
         if mode == "on":
             exists = await db.req_user_exist(channel_id, user_id)
-            #print(f"[REQ] User {user_id} join request for {channel_id}: {exists}")
             return exists
-        #print(f"[NOT SUB] User {user_id} not in {channel_id} and mode != on")
         return False
-
     except Exception as e:
         print(f"[!] Error in is_sub(): {e}")
         return False
-
 
 async def encode(string):
     string_bytes = string.encode("ascii")
@@ -83,48 +61,40 @@ async def encode(string):
     return base64_string
 
 async def decode(base64_string):
-    """Robust decoder that handles non-ASCII bytes gracefully."""
-    base64_string = base64_string.strip("=")
-    # Pad to multiple of 4
-    padded = base64_string + "=" * (-len(base64_string) % 4)
-    # Use latin-1 encoding which maps bytes 0-255 directly to Unicode
-    base64_bytes = padded.encode("latin-1")
-    string_bytes = base64.urlsafe_b64decode(base64_bytes)
-    # Try UTF‑8 first, fallback to latin‑1
+    """Robust decoder that handles any input without crashing."""
     try:
-        string = string_bytes.decode("utf-8")
-    except UnicodeDecodeError:
-        string = string_bytes.decode("latin-1")
-    return string
+        base64_string = base64_string.strip("=")
+        padded = base64_string + "=" * (-len(base64_string) % 4)
+        # Use latin-1 to preserve all bytes
+        base64_bytes = padded.encode("latin-1")
+        string_bytes = base64.urlsafe_b64decode(base64_bytes)
+        # Try UTF-8 first, fallback to latin-1
+        try:
+            string = string_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            string = string_bytes.decode("latin-1")
+        return string
+    except Exception as e:
+        print(f"[!] decode error: {e}")
+        # Return a placeholder that will be caught by corruption check
+        return "corrupted"
 
 async def get_messages(client, message_ids, channel="primary"):
-    """
-    Fetch messages from either primary or secondary DB channel.
-    channel: "primary" or "secondary"
-    """
     if channel == "secondary" and client.secondary_channel:
         target_channel = client.secondary_channel
     else:
         target_channel = client.db_channel
-    
     if not target_channel:
         return []
-
     messages = []
     total_messages = 0
     while total_messages != len(message_ids):
         temb_ids = message_ids[total_messages:total_messages+200]
         try:
-            msgs = await client.get_messages(
-                chat_id=target_channel.id,
-                message_ids=temb_ids
-            )
+            msgs = await client.get_messages(chat_id=target_channel.id, message_ids=temb_ids)
         except FloodWait as e:
             await asyncio.sleep(e.x)
-            msgs = await client.get_messages(
-                chat_id=target_channel.id,
-                message_ids=temb_ids
-            )
+            msgs = await client.get_messages(chat_id=target_channel.id, message_ids=temb_ids)
         except:
             pass
         total_messages += len(temb_ids)
@@ -133,10 +103,8 @@ async def get_messages(client, message_ids, channel="primary"):
 
 async def get_message_id(client, message):
     if message.forward_from_chat:
-        # Check if from primary channel
         if message.forward_from_chat.id == client.db_channel.id:
             return message.forward_from_message_id
-        # Check if from secondary channel
         elif client.secondary_channel and message.forward_from_chat.id == client.secondary_channel.id:
             return message.forward_from_message_id
         else:
@@ -145,28 +113,23 @@ async def get_message_id(client, message):
         return 0
     elif message.text:
         pattern = "https://t.me/(?:c/)?(.*)/(\\d+)"
-        matches = re.match(pattern,message.text)
+        matches = re.match(pattern, message.text)
         if not matches:
             return 0
         channel_id = matches.group(1)
         msg_id = int(matches.group(2))
         if channel_id.isdigit():
-            # Check primary channel
             if f"-100{channel_id}" == str(client.db_channel.id):
                 return msg_id
-            # Check secondary channel
             elif client.secondary_channel and f"-100{channel_id}" == str(client.secondary_channel.id):
                 return msg_id
         else:
-            # Check primary channel by username
             if channel_id == client.db_channel.username:
                 return msg_id
-            # Check secondary channel by username
             elif client.secondary_channel and channel_id == client.secondary_channel.username:
                 return msg_id
     else:
         return 0
-
 
 def get_readable_time(seconds: int) -> str:
     count = 0
@@ -189,7 +152,6 @@ def get_readable_time(seconds: int) -> str:
     up_time += ":".join(time_list)
     return up_time
 
-
 def get_exp_time(seconds):
     periods = [('days', 86400), ('hours', 3600), ('mins', 60), ('secs', 1)]
     result = ''
@@ -201,12 +163,3 @@ def get_exp_time(seconds):
 
 subscribed = filters.create(is_subscribed)
 admin = filters.create(check_admin)
-
-# Don't Remove Credit @Yeon_Bots
-# Ask Doubt on telegram @MrXeonTg
-# Copyright (C) 2026 by Yeon-Bots
-# ===============================[ ᴍᴀᴅᴇ ᴡɪᴛʜ 🤍 ʙʏ @YEON_bots × Copyright (C) 2026 by Yeon-Bots@Github, < https://github.com/MrYKTG>. Copyright (C) 2026 by Yeon-Bots@Telegram, < https://t.me/Yeon_Bots >.  ]==============================
-# ᴅᴏɴ'ᴛ sᴇʟʟ • ᴅᴏɴ'ᴛ ᴄʟᴀɪᴍ ᴀs ʏᴏᴜʀs • sᴜᴘᴘᴏʀᴛ: t.me/Yeon_bots • ʀᴇᴘᴏʀᴛ ʙᴜɢs: @MrXeontg
-# ==================================================================================================
-# All rights reserved.
-#
